@@ -1,0 +1,12 @@
+:root {
+  --color-surface:      #F6F7F7;
+  --color-surface-alt:  #EBEEEF;
+  --color-ink:           #14202B;
+  --color-ink-muted:     #4E5D68;
+  --color-primary:       #0B7285;
+  --color-primary-dark:  #075A68;
+  --color-line:          #D6DCDD;
+  --color-positive:      #2F7D5B;
+  --color-warning:       #B8752C;
+  --color-debt:          #B8462F;
+}
