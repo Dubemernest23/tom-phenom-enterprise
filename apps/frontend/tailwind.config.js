@@ -17,6 +17,7 @@ module.exports = {
         positive: 'var(--color-positive)',
         warning: 'var(--color-warning)',
         debt: 'var(--color-debt)',
+        overlay: 'var(--color-overlay)',
       },
       fontFamily: {
         heading: ['"Space Grotesk"', 'sans-serif'],
@@ -30,6 +31,12 @@ module.exports = {
         xl: '22px',
         '2xl': '28px',
         '3xl': '34px',
+      },
+      letterSpacing: {
+        wordmark: '0.3em',
+      },
+      boxShadow: {
+        header: '0 1px 2px rgba(0, 0, 0, 0.25)',
       },
     },
   },

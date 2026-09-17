@@ -171,8 +171,10 @@ Build is driven by `docs/build-prompts.md` — a sequenced plan consumed one
 prompt at a time.
 
 - [x] Prompt 0 — scaffold: structure, design tokens, Tailwind wiring, `index.html` shell + splash, preview server
-- [ ] Prompt 1 — router, API layer, nav bar
-- [ ] Prompts 2–10 — the 9 pages
+- [x] Prompt 1 — router, API layer, nav bar (bottom tabs + sidebar + group pickers, TP monogram header)
+- [x] Prompt 2 — Dashboard page (hero number, money/summary KPIs, quick actions)
+- [x] Prompt 3 — Roll Intake page (form, computed summary, tabular-nums list)
+- [ ] Prompts 4–10 — remaining pages
 - [ ] Prompt 11 — accessibility / polish pass
 
 ## Documentation index
