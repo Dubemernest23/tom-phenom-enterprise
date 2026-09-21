@@ -11,3 +11,14 @@ export function listRow(cells, options) {
       }).join('')}
     </${Tag}>`;
 }
+
+export function stackedRow({ primary, secondary, value, valueClass }) {
+  return `
+    <div class="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-ink">${primary}</p>
+        ${secondary ? `<p class="mt-0.5 text-xs text-ink-muted">${secondary}</p>` : ''}
+      </div>
+      <p class="shrink-0 text-sm font-semibold tabular-nums ${valueClass || 'text-ink'}">${value}</p>
+    </div>`;
+}

@@ -5,6 +5,23 @@ spec below lists: purpose, data it loads, what's on screen, and what it
 submits. This is what a senior FE lead would hand a mid-level engineer
 instead of a rough sketch — build to this, not around it.
 
+## Login (`#/login`) — auth gate
+
+**Purpose:** the only door into the app — a single owner login (per the PRD,
+auth beyond this is out of scope).
+**Loads on mount:** nothing.
+**On screen:** the TP monogram and wordmark above a username + password form
+and a full-width "Sign in" button. No nav chrome (header/sidebar/tabs are
+hidden while signed out).
+**On submit:** `POST /auth/login` with `{ username, password }`. On success
+store `{ token, user }` in `localStorage` (`tpe:session`) and go to
+`#/dashboard`; on failure show a plain-language error above the button.
+**Guard:** every other route requires a session — unauthenticated visits
+redirect to `#/login`, and an authenticated visit to `#/login` redirects to
+`#/dashboard`. Every API call sends `Authorization: Bearer <token>`; a `401`
+clears the session and returns to `#/login`. The menu sheet has a "Sign out"
+action.
+
 ## 0. Dashboard (`#/dashboard`) — landing page
 
 **Purpose:** one glance at where the business stands today.
@@ -23,7 +40,8 @@ Roll Intake, Factory Log, Distribution, and Customer transaction.
 
 **Loads:** list of past roll intake records, most recent first.
 **Form fields:** date (default today), quantity of rolls (number), total
-kg (number), price per kg (currency), amount paid (currency, default 0).
+kg (number), price per kg (currency), amount paid (currency, default 0),
+supplier (optional).
 **On submit:** POST, then show a summary block with `total_price` and
 `balance` returned by the API. Prepend the new record to the list below
 without a full page reload.
@@ -33,12 +51,13 @@ balance color rules if > 0).
 ## 2. Packing Bags (`#/packing-bags`)
 
 **Two sections on one page:**
-- "Add batch" form: date received, quantity received. Submits to create a
-  new batch.
+- "Add batch" form: date received, quantity received, note (optional).
+  Submits to create a new batch.
 - "Batches" list: each row shows received date, quantity received,
-  quantity remaining (bold), and a "Use bags" button. Tapping it opens an
-  inline mini-form (date, quantity used) — on submit, update that row's
-  remaining count from the API response without navigating away.
+  quantity remaining (bold), the optional note beneath, and a "Use bags"
+  button. Tapping it opens an inline mini-form (date, quantity used) — on
+  submit, update that row's remaining count from the API response without
+  navigating away.
 
 ## 3. Daily Factory Log (`#/factory-log`)
 
@@ -68,7 +87,8 @@ owed, sorted highest-balance first. "+ Add customer" button (name, phone).
 **Detail view (`#/customers/:id`):** customer name/phone at top, running
 total balance as a headline number, transaction history below (date,
 quantity, price given, balance), and an add-transaction form (date,
-quantity, price given, amount paid) — submitting shows `amount_expected`
+quantity, price given, amount expected — optional, leave blank to use
+quantity × price given, amount paid) — submitting shows `amount_expected`
 and `balance` and updates the running total immediately.
 
 ## 6. Payroll (`#/payroll`, `#/payroll/:id`)
@@ -102,4 +122,5 @@ Bottom tabs (mobile): **Dashboard** · **Factory** (→ picker between Roll
 Intake / Packing Bags / Factory Log) · **Money** (→ picker between
 Customers / Payables) · **More** (→ Distribution / Payroll / Maintenance).
 Sidebar (tablet+): all 9 destinations listed individually, Dashboard
-pinned at top.
+pinned at top. The header menu sheet also carries a **Sign out** action.
+The login page (`#/login`) sits outside this chrome.

@@ -1,4 +1,5 @@
 import { tpMonogram, wordmark, splashMarkup } from './logo.js';
+import { clearSession } from '../state.js';
 
 function svg(cls, inner) {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
@@ -77,16 +78,16 @@ function sidebarLink(item) {
 
 export function mountShell(app) {
   const shell = document.createElement('div');
-  shell.className = 'min-h-screen bg-surface text-ink';
+  shell.className = 'app-shell min-h-screen bg-surface text-ink';
   shell.innerHTML = `
-    <aside class="fixed inset-y-0 left-0 z-10 hidden w-56 flex-col border-r border-line bg-surface md:flex" aria-label="Sidebar">
+    <aside class="app-chrome fixed inset-y-0 left-0 z-10 hidden w-56 flex-col border-r border-line bg-surface md:flex" aria-label="Sidebar">
       <nav class="flex-1 overflow-y-auto p-2 pt-3">
         ${SIDEBAR_ITEMS.map(sidebarLink).join('')}
       </nav>
     </aside>
 
-    <div class="min-h-screen md:pl-56">
-      <header class="sticky top-0 z-20 flex items-center gap-3 bg-primary px-4 py-3 shadow-header">
+    <div class="app-content min-h-screen md:pl-56">
+      <header class="app-chrome sticky top-0 z-20 flex items-center gap-3 bg-primary px-4 py-3 shadow-header">
         <a href="#/dashboard" aria-label="TOM-PHENOM ENTERPRISE home">
           ${tpMonogram('h-9 w-9 shrink-0 text-surface')}
         </a>
@@ -97,10 +98,10 @@ export function mountShell(app) {
         </button>
       </header>
 
-      <main id="view" class="mx-auto w-full max-w-3xl px-4 pb-28 pt-6 md:px-6 md:pb-10 md:pt-8"></main>
+      <main id="view" class="app-main mx-auto w-full max-w-3xl px-4 pb-28 pt-6 md:px-6 md:pb-10 md:pt-8"></main>
     </div>
 
-    <nav class="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface md:hidden" aria-label="Primary">
+    <nav class="app-chrome fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface md:hidden" aria-label="Primary">
       <div class="grid grid-cols-4">
         ${TAB_ORDER.map(tabButton).join('')}
       </div>
@@ -139,6 +140,7 @@ function wire(shell) {
   menuBtn.addEventListener('click', () => {
     showSheet({
       title: 'Menu',
+      showSignOut: true,
       sections: [
         { label: null, items: [{ route: '/dashboard', label: 'Dashboard', icon: 'dashboard' }] },
         { label: 'Factory', items: GROUPS.factory.items },
@@ -152,7 +154,7 @@ function wire(shell) {
   updateActive(shell);
 }
 
-function showSheet({ title, sections }) {
+function showSheet({ title, sections, showSignOut }) {
   const opener = document.activeElement;
   const sheet = document.createElement('div');
   sheet.className = 'fixed inset-0 z-30';
@@ -170,6 +172,11 @@ function showSheet({ title, sections }) {
               ${item.label}
             </a>`).join('')}
         </div>`).join('')}
+      ${showSignOut ? `
+        <button type="button" data-signout
+          class="mt-1 flex min-h-11 w-full items-center rounded-lg px-3 py-2 text-left text-lg font-medium text-debt hover:bg-surface-alt">
+          Sign out
+        </button>` : ''}
     </div>`;
 
   document.body.appendChild(sheet);
@@ -189,6 +196,12 @@ function showSheet({ title, sections }) {
   document.addEventListener('keydown', onKey);
   sheet.querySelector('[data-sheet-backdrop]').addEventListener('click', close);
   sheet.addEventListener('click', (e) => {
+    if (e.target.closest('[data-signout]')) {
+      clearSession();
+      window.location.hash = '#/login';
+      close();
+      return;
+    }
     if (e.target.closest('[data-sheet-link]')) close();
   });
   const firstItem = sheet.querySelector('[data-sheet-link]');

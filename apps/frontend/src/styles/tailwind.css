@@ -20,3 +20,16 @@
     font-family: 'Inter', sans-serif;
   }
 }
+
+.app-shell.is-auth .app-chrome {
+  display: none;
+}
+
+.app-shell.is-auth .app-content {
+  padding-left: 0;
+}
+
+.app-shell.is-auth .app-main {
+  max-width: 100%;
+  padding-bottom: 2.5rem;
+}

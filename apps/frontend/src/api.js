@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './config.js';
+import { getSession, clearSession } from './state.js';
 
 async function request(path, options = {}) {
   const url = `${API_BASE_URL}${path}`;
@@ -6,16 +7,27 @@ async function request(path, options = {}) {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   };
+  const session = getSession();
+  if (session && session.token) {
+    config.headers.Authorization = `Bearer ${session.token}`;
+  }
   if (config.body && typeof config.body === 'object') {
     config.body = JSON.stringify(config.body);
   }
   const res = await fetch(url, config);
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401) {
+    clearSession();
+  }
   if (!res.ok) {
     throw new Error(data.error || `Request failed: ${res.status}`);
   }
   return data;
 }
+
+// Auth
+export const login = (credentials) => request('/auth/login', { method: 'POST', body: credentials });
+export const logout = () => request('/auth/logout', { method: 'POST' });
 
 // Roll Intake
 export const getRollIntakes = () => request('/roll-intake');

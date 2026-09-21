@@ -8,11 +8,12 @@ export async function render(container) {
     <h1 class="font-heading text-xl font-semibold text-ink">Roll intake</h1>
 
     <form id="roll-intake-form" class="mt-6 flex flex-col gap-4">
-      ${formField({ name: 'date', label: 'Date', type: 'date', value: todayISO() })}
+      ${formField({ name: 'intake_date', label: 'Date', type: 'date', value: todayISO() })}
       ${formField({ name: 'quantity_rolls', label: 'Quantity of rolls', type: 'number', inputmode: 'numeric', min: 0 })}
       ${formField({ name: 'total_kg', label: 'Total kg', type: 'number', inputmode: 'decimal', min: 0, step: '0.01' })}
       ${formField({ name: 'price_per_kg', label: 'Price per kg', type: 'number', inputmode: 'decimal', min: 0, step: '0.01' })}
       ${formField({ name: 'amount_paid', label: 'Amount paid', type: 'number', inputmode: 'decimal', min: 0, step: '0.01', value: '0' })}
+      ${formField({ name: 'supplier_name', label: 'Supplier (optional)', required: false })}
       <button type="submit" class="mt-2 min-h-11 w-full rounded-lg bg-primary px-4 py-3 text-base font-medium text-surface hover:bg-primary-dark">Save roll intake</button>
     </form>
 
@@ -31,11 +32,12 @@ export async function render(container) {
     e.preventDefault();
     var fd = new FormData(form);
     var body = {
-      date: fd.get('date'),
+      intake_date: fd.get('intake_date'),
       quantity_rolls: Number(fd.get('quantity_rolls')),
       total_kg: Number(fd.get('total_kg')),
       price_per_kg: Number(fd.get('price_per_kg')),
       amount_paid: Number(fd.get('amount_paid')),
+      supplier_name: String(fd.get('supplier_name') || '').trim() || null,
     };
 
     try {
@@ -59,7 +61,7 @@ export async function render(container) {
     listEl.insertAdjacentHTML('afterbegin', row(result));
 
     form.reset();
-    form.elements.date.value = todayISO();
+    form.elements.intake_date.value = todayISO();
     form.elements.amount_paid.value = '0';
   });
 }
@@ -80,10 +82,11 @@ async function loadList(listEl) {
 }
 
 function row(r) {
+  var bal = r.balance > 0 ? 'Owed ' + formatNaira(r.balance) : '—';
   return listRow([
-    { value: formatDate(r.date), className: 'text-ink' },
+    { value: formatDate(r.intake_date || r.date), className: 'text-ink' },
     { value: r.total_kg != null ? r.total_kg + ' kg' : '—', className: 'text-ink' },
     { value: formatNaira(r.total_price), className: 'text-ink' },
-    { value: r.balance > 0 ? formatNaira(r.balance) : '—', className: r.balance > 0 ? 'font-semibold text-debt' : 'text-ink-muted' },
+    { value: bal, className: r.balance > 0 ? 'font-semibold text-debt' : 'text-ink-muted' },
   ]);
 }

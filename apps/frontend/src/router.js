@@ -1,7 +1,12 @@
 const routes = {};
+let guard = null;
 
 export function registerRoute(path, module) {
   routes[path] = module;
+}
+
+export function setRouteGuard(fn) {
+  guard = fn;
 }
 
 export function initRouter(container) {
@@ -16,6 +21,7 @@ export function initRouter(container) {
 }
 
 function renderRoute(path, container) {
+  if (guard && guard(path) === false) return;
   if (Object.keys(routes).length === 0) return;
   for (const [pattern, module] of Object.entries(routes)) {
     const params = matchRoute(pattern, path);
