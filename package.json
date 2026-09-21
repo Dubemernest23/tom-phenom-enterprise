@@ -1,0 +1,19 @@
+{
+  "name": "tom-phenom-enterprise",
+  "private": true,
+  "workspaces": [
+    "apps/frontend",
+    "apps/server"
+  ],
+  "scripts": {
+    "dev": "concurrently -n frontend-css,frontend-web,server -c cyan,green,magenta \"npm --prefix apps/frontend run dev\" \"npm --prefix apps/frontend run preview\" \"npm --prefix apps/server run dev\"",
+    "dev:frontend": "concurrently -n frontend-css,frontend-web -c cyan,green \"npm --prefix apps/frontend run dev\" \"npm --prefix apps/frontend run preview\"",
+    "dev:server": "npm --prefix apps/server run dev",
+    "build": "npm --prefix apps/frontend run build && npm --prefix apps/server run build",
+    "build:frontend": "npm --prefix apps/frontend run build",
+    "build:server": "npm --prefix apps/server run build"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

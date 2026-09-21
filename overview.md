@@ -39,10 +39,10 @@ Key design philosophy stated across the docs:
 | Routing | Custom hash router | `#/dashboard`, `#/customers/:id`, etc. — static-host friendly |
 | Styling | Tailwind CSS v3 (`^3.4.0`) | Configured to the project's **own design tokens**, not Tailwind's default palette/fonts |
 | Fonts | Space Grotesk (headings) + Inter (body/UI) | Loaded from Google Fonts; falls back to system sans-serif offline |
-| Backend | Express + MySQL (planned, **not built**) | `apps/server/` is an empty planned directory |
+| Backend | TypeScript + Express + MySQL (`mysql2`) | `apps/server/` is set up as a TypeScript API workspace with module-first route files; database logic is still pending |
 | Deployment | Render (Static Site + Web Service) + external managed MySQL | `render.yaml` Blueprint planned (inlined in `docs/monorepo-structure.md`) but **not written** |
-| Local serving | `serve` (`^14.2.0`) static file server | `npm run preview` on port `5173` |
-| Build step | Only CSS: Tailwind CLI compiles `tailwind.css` → `output.css` | JS is loaded directly as native modules; no transpilation |
+| Local serving | Root `concurrently` script | `npm run dev` starts frontend CSS watch, frontend static server, and backend dev server together |
+| Build step | Frontend CSS + backend TypeScript | Tailwind compiles `tailwind.css` to `output.css`; backend compiles `src/**/*.ts` to `dist/` |
 
 ## 3. Repository layout (actual vs. planned)
 
@@ -81,15 +81,38 @@ tom-phenom-enterprise/
 │   │       ├── payroll.js        # ✅ BUILT (Prompt 8) — list + :id detail
 │   │       ├── maintenance.js    # ✅ BUILT (Prompt 9)
 │   │       └── payables.js       # ✅ BUILT (Prompt 10) — list + :id detail
-│   └── server/                       # ❌ EMPTY / does not exist yet (planned Express + MySQL)
+│   └── server/                       # TypeScript Express API foundation
+│       ├── package.json              # scripts: dev / build / start / typecheck
+│       ├── tsconfig.json             # strict TS build to dist/
+│       ├── .env.example              # PORT, CORS_ORIGIN, DATABASE_URL, JWT/owner login
+│       └── src/
+│           ├── app.ts                # Express app, middleware, route mounting
+│           ├── server.ts             # listen entry
+│           ├── db.ts                 # lazy mysql2 pool + health check
+│           ├── config/env.ts         # dotenv-backed env reader
+│           ├── middleware/           # auth + error/not-found middleware
+│           ├── modules/              # module-first backend structure
+│           │   ├── auth/
+│           │   ├── dashboard/
+│           │   ├── roll-intake/
+│           │   ├── packing-bags/
+│           │   ├── factory-log/
+│           │   ├── distribution/
+│           │   ├── customers/
+│           │   ├── payroll/
+│           │   ├── maintenance/
+│           │   └── payables/
+│           ├── types/                # Express request augmentation
+│           └── utils/                # shared HTTP helpers
 ├── docs/                             # all spec/architecture docs (see §5)
 ├── .gitignore                        # ignores node_modules, .env, and output.css
 ├── README.md                         # human-facing quickstart + status
 └── render.yaml                       # ❌ NOT WRITTEN (Blueprint lives as a code block in docs only)
 ```
 
-Note: the README "Repository layout" shows a planned `apps/server/` tree; it
-does not exist yet. Only `apps/frontend/` has real code.
+Note: the backend is intentionally module-first. There are no separate
+top-level `controllers/` or `services/` folders; each backend feature owns its
+route/validation/business logic inside `src/modules/<module>/`.
 
 ## 4. What has been done (status as of today)
 
@@ -393,18 +416,32 @@ posts `intake_date`), and optional schema columns are now exposed in the
 forms (roll-intake `supplier_name`, packing-bag `note`, customer
 `amount_expected`).
 
-### 6.2 Backend — `apps/server/` (out of frontend scope)
+### 6.2 Backend — `apps/server/`
 
-Entirely unbuilt. Planned: Express + MySQL (`mysql2`), structure per
-`docs/monorepo-structure.md` — `src/index.js` (entry), `src/db.js`
-(connection pool from `DATABASE_URL`), `src/routes/` one file per module,
-`src/controllers/`, `src/config/env.js` (reads `DATABASE_URL`, `PORT`,
-`CORS_ORIGIN`), `.env.example`. All frontend API calls currently target
-`http://localhost:4000/api` and will 404 until this exists. The database
-schema is fully specified in `docs/schema.md`, and the exact request/response
-contracts the frontend pages expect are now enumerated in §4.3 (each page
-lists the fields it sends and the computed values it displays). The README
-notes the backend "built later, by Chidubem — not opencode's job".
+The backend foundation is now built as a strict TypeScript Express app.
+`apps/server/package.json` provides `dev`, `build`, `start`, and `typecheck`;
+`tsconfig.json` compiles `src/**/*.ts` to `dist/`; `.env.example` documents
+`PORT`, `CORS_ORIGIN`, `DATABASE_URL`, `JWT_SECRET`, and the single-owner login
+env vars.
+
+The server entry is split into `src/app.ts` (Express app, middleware, route
+mounting) and `src/server.ts` (listen call). `src/db.ts` creates a lazy
+`mysql2/promise` pool from `DATABASE_URL` and powers `/health`. Auth/error
+middleware is in `src/middleware/`.
+
+The backend is deliberately **module-first**, not split into top-level
+controller/service folders. Feature work should happen under
+`src/modules/<module>/`, where the route file and later validation/business
+logic can live together. Current modules: `auth`, `dashboard`, `roll-intake`,
+`packing-bags`, `factory-log`, `distribution`, `customers`, `payroll`,
+`maintenance`, and `payables`.
+
+Implemented now: `POST /api/auth/login`, `POST /api/auth/logout`, `/health`,
+JWT Bearer auth guard for `/api/*`, error handling, and placeholder routes for
+every frontend endpoint. Placeholder module routes return `501` until the SQL
+logic is implemented. The database schema is fully specified in
+`docs/schema.md`, and the exact request/response contracts the frontend pages
+expect are enumerated in §4.3.
 
 Key response shapes the backend must produce (from §4.3):
 - `POST /auth/login` → `{ token, user }` (single owner); all other endpoints
@@ -481,18 +518,21 @@ These are restated verbatim-ish from the docs because they are treated as
 
 ## 8. How to run / develop
 
-From `apps/frontend`:
+From the repo root:
 
 ```sh
-npm install            # one-time (already installed: node_modules present)
-npm run build          # compile Tailwind → src/styles/output.css (--minify)
-npm run preview        # serve static files at http://localhost:5173
-npm run dev            # Tailwind watch mode (run alongside a static server)
+npm install            # installs root workspace dependencies
+npm run dev            # starts frontend CSS watch + frontend server + backend API
+npm run build          # builds frontend CSS and backend TypeScript
+npm run dev:frontend   # frontend only
+npm run dev:server     # backend only
 ```
 
-Open http://localhost:5173. Without a backend, the dashboard/roll-intake
-pages will render their fetch-error message or empty states; the shell, nav,
-splash, and (static) part of the pages all work.
+Open http://localhost:5173 for the app. The backend listens on
+http://localhost:4000 by default, with health at `/health` and API routes
+under `/api`. Copy `apps/server/.env.example` to `apps/server/.env` when you
+are ready to set real database/JWT/owner-login values. Until module SQL is
+implemented, protected module endpoints return `501` placeholders.
 
 ## 9. Data-flow facts an AI must know before building pages
 
@@ -519,9 +559,13 @@ splash, and (static) part of the pages all work.
   components/design tokens, all 8 module pages + 3 detail views, and the
   accessibility polish pass. Plus a login page (`#/login`) with a session
   guard and sign-out, and a schema-alignment pass on the forms. All 14 routes
-  registered; JS syntax-validated; Tailwind `output.css` rebuilt.
-- **Remaining (repo-wide):** Express + MySQL backend (`apps/server/`), the
-  `render.yaml` Blueprint, and an external managed MySQL instance.
+  registered; JS syntax-validated; Tailwind `output.css` rebuilt. Backend
+  TypeScript workspace is set up with Express app/server entries, auth shell,
+  MySQL pool helper, module-first route placeholders, root concurrent dev
+  scripts, and passing server typecheck/build.
+- **Remaining (repo-wide):** Implement the MySQL-backed module logic, add real
+  migrations/schema execution flow, write `render.yaml`, and connect an
+  external managed MySQL instance.
 - **Rules:** vanilla JS ES modules, custom hash router, Tailwind wired to
   custom tokens only, computed values always sourced from the API, strict
   balance-color semantics (always paired with "Owed "/"Owe" text labels),

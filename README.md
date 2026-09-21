@@ -30,7 +30,8 @@ suppliers/vendors.
   One `index.html`, hash-based routing (`#/dashboard`, `#/customers/:id`).
 - **Styling:** Tailwind CSS configured to this project's own design tokens
   (the default Tailwind palette and fonts are not used).
-- **Backend (planned):** Express + MySQL API, built separately.
+- **Backend:** TypeScript Express + MySQL API foundation in `apps/server`,
+  with module-first routes under `src/modules`.
 - **Deployments:** Render Static Site + Render Web Service (see
   `docs/monorepo-structure.md`).
 
@@ -55,7 +56,15 @@ tom-phenom-enterprise/
 │   │   │   └── pages/            # one module per page (login, dashboard, roll-intake, …)
 │   │   ├── tailwind.config.js    # maps Tailwind theme to the design tokens
 │   │   └── package.json
-│   └── server/                   # Express + MySQL API — not built yet
+│   └── server/                   # TypeScript Express + MySQL API
+│       ├── src/
+│       │   ├── app.ts            # Express app and route mounting
+│       │   ├── server.ts         # listen entry
+│       │   ├── db.ts             # mysql2 pool helper
+│       │   └── modules/          # auth, dashboard, roll-intake, etc.
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── .env.example
 ├── docs/                         # design system, page specs, architecture
 ├── render.yaml                   # Render Blueprint (targeted — see Deployment)
 └── README.md
@@ -68,34 +77,32 @@ tom-phenom-enterprise/
 
 ## Getting started
 
-Clone the repo, then everything happens inside `apps/frontend`:
+Clone the repo, then install from the repo root:
 
 ```sh
 git clone <this repo>
-cd apps/frontend
+cd tom-phenom-enterprise
 npm install
 ```
 
 ### Quick start
 
 ```sh
-npm run build      # compile Tailwind into src/styles/output.css
-npm run preview    # serve the app at http://localhost:5173
+npm run dev        # frontend CSS watch + frontend server + backend API
 ```
 
-Open http://localhost:5173. The frontend runs entirely as static files —
-no Node server is required at runtime.
+Open http://localhost:5173 for the app. The backend listens on
+http://localhost:4000 by default.
 
 ### Day-to-day development
 
-Run two terminals from `apps/frontend`:
+Useful root scripts:
 
 ```sh
-# Terminal 1 — rebuild CSS on every change
-npm run dev
-
-# Terminal 2 — static file server
-npm run preview
+npm run dev            # frontend + backend together
+npm run dev:frontend   # frontend only
+npm run dev:server     # backend only
+npm run build          # frontend CSS + backend TypeScript
 ```
 
 The app is an SPA: as you build the pages, navigation between modules
@@ -105,9 +112,11 @@ happens through hash routes with no full page reloads.
 
 | Script | Command | Purpose |
 |---|---|---|
-| `build` | `npx tailwindcss -i ./src/styles/tailwind.css -o ./src/styles/output.css --minify` | One-off minified CSS build. Run before preview/deploy if `output.css` is missing. |
-| `dev` | same as build, with `--watch` | Continuous rebuild while editing markup/JS |
-| `preview` | `serve . -l 5173` | Local static server for `apps/frontend` |
+| `dev` | root | Runs frontend CSS watch, frontend static server, and backend dev server concurrently |
+| `dev:frontend` | root | Runs only the frontend CSS watcher and static server |
+| `dev:server` | root | Runs only the backend TypeScript watcher |
+| `build` | root | Builds frontend CSS and backend TypeScript |
+| `typecheck` | `apps/server` | Runs `tsc --noEmit` for the backend |
 
 ## Connecting the frontend to the API
 
@@ -130,9 +139,10 @@ All but the login page require a session. The owner signs in at `#/login`;
 A `401` clears the session and sends the user back to `#/login`; sign-out is
 in the menu sheet.
 
-> The backend (`apps/server`) is not built yet. Until it exists, the
-> frontend renders the design-system shell and splash screen; pages that
-> load data need the API.
+The backend foundation exists, but module SQL is still pending. `/health`,
+`POST /api/auth/login`, and `POST /api/auth/logout` are wired; protected
+module endpoints currently return `501` placeholders until each module is
+implemented against MySQL.
 
 ## Styling and design tokens
 
