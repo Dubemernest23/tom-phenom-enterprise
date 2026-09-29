@@ -3,7 +3,7 @@ import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { env } from './config/env';
-import { checkDatabase } from './db';
+import { checkDatabase } from './config/db';
 import { requireAuth } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { authRouter } from './modules/auth/auth.routes';

@@ -144,3 +144,4 @@ vite.config.ts.timestamp-*
 
 # Tailwind generated output (compiled from src/styles/tailwind.css — not committed)
 apps/frontend/src/styles/output.css
+apps/server/ca.pem
