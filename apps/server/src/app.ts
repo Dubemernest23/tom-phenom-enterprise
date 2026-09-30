@@ -16,7 +16,7 @@ import { packingBagsRouter } from './modules/packing-bags/packing-bags.routes';
 import { payablesRouter } from './modules/payables/payables.routes';
 import { payrollRouter } from './modules/payroll/payroll.routes';
 import { rollIntakeRouter } from './modules/roll-intake/roll-intake.routes';
-import { asyncHandler } from './utils/http';
+import { asyncHandler } from './utils/asyncHandler';
 
 export const createApp = () => {
   const app = express();
@@ -24,6 +24,7 @@ export const createApp = () => {
   app.use(helmet());
   app.use(cors({ origin: env.corsOrigin }));
   app.use(express.json());
+  app.use(express.urlencoded({extended: true}))
   app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
 
   app.get('/health', asyncHandler(async (_req, res) => {

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { notImplemented } from '../../utils/http';
+import { notImplemented } from '../../utils/asyncHandler';
 
 export const dashboardRouter = Router();
 

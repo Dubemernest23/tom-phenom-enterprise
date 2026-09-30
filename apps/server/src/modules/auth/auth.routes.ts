@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { env } from '../../config/env';
-import { asyncHandler } from '../../utils/http';
+import { asyncHandler } from '../../utils/asyncHandler';
 
 const loginSchema = z.object({
   username: z.string().min(1),
