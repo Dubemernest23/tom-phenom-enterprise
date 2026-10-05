@@ -1,10 +1,10 @@
-import { env } from './config/env';
-import { createApp } from './app';
+import { env } from './config/env.js';
+import { createApp } from './app.js';
 
 const app = createApp();
 
-import { checkDatabase } from './config/db';
-import { logger } from './shared/logger';
+import { checkDatabase } from './config/db.js';
+import { logger } from './shared/logger.js';
 
 const start  = async(): Promise<void> =>{
   checkDatabase().then((result) =>{
