@@ -1,45 +1,21 @@
-import type { Kysely } from 'kysely';
-import type { Database } from '../types.js';
+import { sql, type Kysely } from 'kysely';
 
-export async function up(db: Kysely<Database>): Promise<void> {
-  await db.schema
-    .createTable('users')
-    .addColumn('id', 'integer', column =>
-      column
-        .autoIncrement()
-        .primaryKey(),
+export async function up(db: Kysely<any>): Promise<void> {
+  await sql`
+    CREATE TABLE admin (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(255) UNIQUE NOT NULL,
+      password VARCHAR(255) NOT NULL,
+      role VARCHAR(255) NOT NULL DEFAULT 'ADMIN',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP
     )
-    .addColumn('name', 'varchar(100)', column =>
-      column.notNull(),
-    )
-    .addColumn('email', 'varchar(255)', column =>
-      column
-        .notNull()
-        .unique(),
-    )
-    .addColumn('password_hash', 'varchar(255)', column =>
-      column.notNull(),
-    )
-    .addColumn('role', 'varchar(20)', column =>
-      column
-        .notNull()
-        .defaultTo('user'),
-    )
-    .addColumn('created_at', 'timestamp', column =>
-      column
-        .notNull()
-        .defaultTo(db.fn.now()),
-    )
-    .addColumn('updated_at', 'timestamp', column =>
-      column
-        .notNull()
-        .defaultTo(db.fn.now()),
-    )
-    .execute();
+  `.execute(db);
 }
 
-export async function down(db: Kysely<Database>): Promise<void> {
+export async function down(db: Kysely<any>): Promise<void> {
   await db.schema
-    .dropTable('users')
+    .dropTable('admin')
     .execute();
 }

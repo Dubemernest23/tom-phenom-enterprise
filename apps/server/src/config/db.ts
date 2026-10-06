@@ -70,6 +70,6 @@ export const checkDatabase = async (): Promise<{
 
 export const db = new Kysely<Database>({
   dialect: new MysqlDialect({
-    pool: getPool(),
+    pool: getPool().pool,
   }),
 });

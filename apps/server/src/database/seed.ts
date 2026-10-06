@@ -1,11 +1,12 @@
 // src/database/seed.ts
 
 import { db } from '../config/db.js';
-import { seedUsers } from './seeds/001_seed_users.js';
+import { seedAdmin } from './seeds/001_seed_admin.js';
+
 
 const seed = async (): Promise<void> => {
   try {
-    await seedUsers(db);
+    await seedAdmin(db);
 
     console.log('Database seeded successfully');
   } catch (error) {
