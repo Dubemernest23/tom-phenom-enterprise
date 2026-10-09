@@ -13,6 +13,8 @@ export const env = {
   port: toNumber(process.env.PORT, 4000),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   databaseUrl: process.env.DATABASE_URL,
+  isDevelopment: process.env.NODE_ENV === 'development',
+  isProduction: process.env.NODE_ENV === 'production',
   jwtSecret: process.env.JWT_SECRET || 'dev-only-change-me',
   ownerUsername: process.env.OWNER_USERNAME || 'owner',
   ownerPassword: process.env.OWNER_PASSWORD || 'change-me',
