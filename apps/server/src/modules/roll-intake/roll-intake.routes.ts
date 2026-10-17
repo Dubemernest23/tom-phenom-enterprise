@@ -1,7 +1,9 @@
 import { Router } from 'express';
-import { notImplemented } from '../../utils/asyncHandler';
+import { rollIntakeController } from './roll-intake.controller.js';
 
 export const rollIntakeRouter = Router();
 
-rollIntakeRouter.get('/', notImplemented('Roll intake', 'list'));
-rollIntakeRouter.post('/', notImplemented('Roll intake', 'create'));
+rollIntakeRouter.get('/', rollIntakeController.list);
+rollIntakeRouter.post('/', rollIntakeController.create);
+rollIntakeRouter.get('/:id', rollIntakeController.getById);
+rollIntakeRouter.patch('/:id', rollIntakeController.update);

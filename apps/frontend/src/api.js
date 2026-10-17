@@ -30,7 +30,13 @@ export const login = (credentials) => request('/auth/login', { method: 'POST', b
 export const logout = () => request('/auth/logout', { method: 'POST' });
 
 // Roll Intake
-export const getRollIntakes = () => request('/roll-intake');
+// export const getRollIntakes = () => request('/roll-intake');
+export const getRollIntakes = (params = {}) => {
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  ).toString();
+  return request(`/roll-intake${query ? `?${query}` : ''}`);
+};
 export const createRollIntake = (data) => request('/roll-intake', { method: 'POST', body: data });
 
 // Packing Bags

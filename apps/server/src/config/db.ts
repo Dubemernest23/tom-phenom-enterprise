@@ -27,6 +27,8 @@ const buildPoolConfig = (): mysql.PoolOptions => {
     user: decodeURIComponent(url.username),
     password: decodeURIComponent(url.password),
     database: url.pathname.replace(/^\//, ''),
+    dateStrings: ['DATE'],
+    timezone: 'Z',
     ssl: {
       ca: fs.readFileSync(
         path.join(__dirname, '../../ca.pem'),

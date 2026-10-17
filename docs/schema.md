@@ -1,17 +1,20 @@
-# Database Schema — MySQL
+-- TOM-PHENOM ENTERPRISE: MySQL schema (revised)
+--
+-- Conventions
+--   * Money is DECIMAL(12,2). Dates without a time are DATE.
+--   * Every table has id, created_at, updated_at, except packing_bag_usage_log
+--     (append-only audit trail, so no updated_at on purpose).
+--   * Computed columns (totals, balances) are calculated in the service layer
+--     and stored. CHECK constraints make the database refuse any row whose
+--     stored value disagrees with its inputs, so an edit can never leave a
+--     stale balance behind. CHECKs are enforced on MySQL 8.0.16+ and
+--     MariaDB 10.2.1+ (older versions parse them and ignore them).
+--   * Foreign keys use ON DELETE RESTRICT: a parent with history can't be
+--     deleted by accident.
+--   * Parents are created before children.
 
-Conventions:
-- All monetary values stored as `DECIMAL(12,2)` (naira and kobo).
-- All tables have `id INT AUTO_INCREMENT PRIMARY KEY`, `created_at`, `updated_at`.
-- Computed fields (balances, totals) are **not** stored as generated columns by
-  default — they're calculated in the application layer on read/write, so the
-  logic lives in one place (the Express service layer) rather than split
-  between SQL and code. You can switch specific ones to generated columns later
-  if you want the DB to enforce it.
-
-```sql
 -- ========================
--- 1. Nylon Roll Intake
+-- 1. Nylon roll intake
 -- ========================
 CREATE TABLE roll_intake (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -19,16 +22,22 @@ CREATE TABLE roll_intake (
   quantity_rolls INT NOT NULL,
   total_kg DECIMAL(10,2) NOT NULL,
   price_per_kg DECIMAL(12,2) NOT NULL,
-  total_price DECIMAL(12,2) NOT NULL,        -- total_kg * price_per_kg
+  total_price DECIMAL(12,2) NOT NULL,        -- total_kg * price_per_kg, rounded to 2dp
   amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
   balance DECIMAL(12,2) NOT NULL,            -- total_price - amount_paid
   supplier_name VARCHAR(120),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_roll_intake_date (intake_date),
+  CONSTRAINT chk_roll_intake_inputs
+    CHECK (quantity_rolls > 0 AND total_kg > 0 AND price_per_kg >= 0 AND amount_paid >= 0),
+  CONSTRAINT chk_roll_intake_balance
+    CHECK (balance = total_price - amount_paid)
 );
 
+
 -- ========================
--- 2. Packing Bags Inventory
+-- 2. Packing bags inventory
 -- ========================
 CREATE TABLE packing_bag_batch (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -37,26 +46,38 @@ CREATE TABLE packing_bag_batch (
   quantity_used INT NOT NULL DEFAULT 0,
   quantity_remaining INT NOT NULL,           -- quantity_received - quantity_used
   note VARCHAR(255),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_pbb_received_date (received_date),
+  CONSTRAINT chk_pbb_quantities
+    CHECK (quantity_received > 0
+       AND quantity_used >= 0
+       AND quantity_used <= quantity_received
+       AND quantity_remaining = quantity_received - quantity_used)
 );
 
--- Audit trail every time a batch is updated (the "update route" usage log)
+-- Append-only audit trail: one row each time bags are taken from a batch.
 CREATE TABLE packing_bag_usage_log (
   id INT AUTO_INCREMENT PRIMARY KEY,
   batch_id INT NOT NULL,
   usage_date DATE NOT NULL,
   quantity_used INT NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (batch_id) REFERENCES packing_bag_batch(id)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_pbul_batch_date (batch_id, usage_date),
+  CONSTRAINT fk_pbul_batch FOREIGN KEY (batch_id)
+    REFERENCES packing_bag_batch(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_pbul_quantity CHECK (quantity_used > 0)
 );
 
 -- ========================
--- 3. Daily Factory Log
+-- 3. Daily factory log
 -- ========================
+-- log_date is UNIQUE (one log per day). Mistakes are fixed through an update
+-- route. The derived columns are CHECKed so a correction must recompute them.
+-- The unique index on log_date also serves the weekly and monthly range sums.
 CREATE TABLE daily_factory_log (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  log_date DATE NOT NULL UNIQUE,
+  log_date DATE NOT NULL,
   opening_stock INT NOT NULL,
   closing_stock INT NOT NULL,
   distribution_qty INT NOT NULL,             -- van + keke combined for the day
@@ -64,12 +85,20 @@ CREATE TABLE daily_factory_log (
   total_2 INT NOT NULL,                      -- distribution_qty + in_house_qty
   total_1 INT NOT NULL,                      -- total_2 + closing_stock
   production INT NOT NULL,                   -- total_1 - opening_stock
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_factory_log_date (log_date),
+  CONSTRAINT chk_factory_log_inputs
+    CHECK (opening_stock >= 0 AND closing_stock >= 0
+       AND distribution_qty >= 0 AND in_house_qty >= 0),
+  CONSTRAINT chk_factory_log_derived
+    CHECK (total_2 = distribution_qty + in_house_qty
+       AND total_1 = total_2 + closing_stock
+       AND production = total_1 - opening_stock)
 );
 
 -- ========================
--- 4. Distribution (Keke & Van)
+-- 4. Distribution (keke and van)
 -- ========================
 CREATE TABLE distribution_record (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -80,42 +109,63 @@ CREATE TABLE distribution_record (
   amount_expected DECIMAL(12,2) NOT NULL,    -- quantity_given * price_per_bag
   amount_returned DECIMAL(12,2) NOT NULL DEFAULT 0,
   balance DECIMAL(12,2) NOT NULL,            -- amount_expected - amount_returned
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_dist_date (dist_date),
+  INDEX idx_dist_channel_date (channel, dist_date),
+  CONSTRAINT chk_dist_inputs
+    CHECK (quantity_given > 0 AND price_per_bag >= 0 AND amount_returned >= 0),
+  CONSTRAINT chk_dist_derived
+    CHECK (amount_expected = quantity_given * price_per_bag
+       AND balance = amount_expected - amount_returned)
 );
 
 -- ========================
--- 5. Big Customers Ledger
+-- 5. Big customers ledger
 -- ========================
 CREATE TABLE customer (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   phone VARCHAR(30),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_customer_name (name)
 );
 
+-- quantity and price_given allow 0 so a pure payment (no new sale) can be
+-- recorded. That row has a negative balance, and the customer's total debt is
+-- SUM(balance).
 CREATE TABLE customer_transaction (
   id INT AUTO_INCREMENT PRIMARY KEY,
   customer_id INT NOT NULL,
   txn_date DATE NOT NULL,
   quantity INT NOT NULL,
   price_given DECIMAL(10,2) NOT NULL,
-  amount_expected DECIMAL(12,2) NOT NULL,    -- quantity * price_given (or entered)
+  amount_expected DECIMAL(12,2) NOT NULL,    -- quantity * price_given
   amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
   balance DECIMAL(12,2) NOT NULL,            -- amount_expected - amount_paid
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (customer_id) REFERENCES customer(id)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_ct_customer_date (customer_id, txn_date),
+  CONSTRAINT fk_ct_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_ct_inputs
+    CHECK (quantity >= 0 AND price_given >= 0 AND amount_paid >= 0),
+  CONSTRAINT chk_ct_balance
+    CHECK (balance = amount_expected - amount_paid)
 );
 
 -- ========================
--- 6. Worker Payroll
+-- 6. Worker payroll
 -- ========================
 CREATE TABLE worker (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   role VARCHAR(80),
   base_salary DECIMAL(12,2) NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT chk_worker_salary CHECK (base_salary >= 0)
 );
 
 CREATE TABLE salary_record (
@@ -126,12 +176,19 @@ CREATE TABLE salary_record (
   advance DECIMAL(12,2) NOT NULL DEFAULT 0,
   amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
   balance DECIMAL(12,2) NOT NULL,            -- salary_due - advance - amount_paid
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (worker_id) REFERENCES worker(id)
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_salary_worker_period (worker_id, pay_period),
+  CONSTRAINT fk_salary_worker FOREIGN KEY (worker_id)
+    REFERENCES worker(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_salary_inputs
+    CHECK (salary_due >= 0 AND advance >= 0 AND amount_paid >= 0),
+  CONSTRAINT chk_salary_balance
+    CHECK (balance = salary_due - advance - amount_paid)
 );
 
 -- ========================
--- 7. Maintenance Log
+-- 7. Maintenance log
 -- ========================
 CREATE TABLE maintenance_record (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -140,7 +197,10 @@ CREATE TABLE maintenance_record (
   description VARCHAR(255),
   cost DECIMAL(12,2) NOT NULL,
   vendor VARCHAR(120),
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_maint_date (maint_date),
+  CONSTRAINT chk_maint_cost CHECK (cost >= 0)
 );
 
 -- ========================
@@ -149,10 +209,13 @@ CREATE TABLE maintenance_record (
 CREATE TABLE creditor (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
-  category VARCHAR(80),                      -- e.g. 'nylon_supplier', 'mechanic', 'parts'
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  category VARCHAR(80),                      -- e.g. 'packing_bag_supplier', 'mechanic', 'parts'
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_creditor_name (name)
 );
 
+-- Like customer_transaction, amount_owed may be 0 for a pure payment row.
 CREATE TABLE payable_transaction (
   id INT AUTO_INCREMENT PRIMARY KEY,
   creditor_id INT NOT NULL,
@@ -161,29 +224,26 @@ CREATE TABLE payable_transaction (
   amount_owed DECIMAL(12,2) NOT NULL,
   amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
   balance DECIMAL(12,2) NOT NULL,            -- amount_owed - amount_paid
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (creditor_id) REFERENCES creditor(id)
-);
--- =====
--- ADMIN
--- ========
-CREATE TABLE Admin (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  username VARCHAR(255) UNIQUE NOT NULL,
-  password VARCHAR(255) NOT NULL,
-  role VARCHAR(255) DEFAULT ADMIN, 
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_pt_creditor_date (creditor_id, txn_date),
+  CONSTRAINT fk_pt_creditor FOREIGN KEY (creditor_id)
+    REFERENCES creditor(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_pt_inputs CHECK (amount_owed >= 0 AND amount_paid >= 0),
+  CONSTRAINT chk_pt_balance CHECK (balance = amount_owed - amount_paid)
 );
 
-```
-## Notes on relationships
-- `packing_bag_usage_log` → `packing_bag_batch` (many logs per batch, audit trail).
-- `customer_transaction` → `customer` (many transactions per customer).
-- `salary_record` → `worker` (many pay periods per worker).
-- `payable_transaction` → `creditor` (many payments/charges per creditor).
-- `distribution_record` and `daily_factory_log` are date-based facts, not
-  linked by FK, but the app layer should be able to cross-check that a given
-  day's `distribution_qty` in the factory log roughly matches the sum of that
-  day's `distribution_record.quantity_given` — good candidate for the
-  "flag when books don't balance" stretch feature.
+-- ========================
+-- 9. Admin
+-- ========================
+-- Lower-case name: MySQL table names are case-sensitive on Linux hosts.
+-- Stores a bcrypt hash, never the password.
+CREATE TABLE admin (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(100) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(50) NOT NULL DEFAULT 'ADMIN',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_admin_username (username)
+);

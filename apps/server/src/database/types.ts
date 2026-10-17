@@ -1,14 +1,25 @@
-import type { Generated } from 'kysely';
+import type { 
+  Generated,
+  ColumnType,
+  Insertable,
+  Selectable,
+  Updateable,
+} from 'kysely';
+import { number } from 'zod';
+
+type Money = ColumnType<string,string | number,string | number>;
+
+type DateOnly = ColumnType<string,string,string>;
 
 export interface RollIntakeTable {
   id: Generated<number>;
-  intake_date: Date;
-  quantity_rolls: number;
-  total_kg: number;
-  price_per_kg: number;
-  total_price: number;
-  amount_paid: number;
-  balance: number;
+  intake_date: DateOnly;
+  quantity_rolls: Money;
+  total_kg: Money;
+  price_per_kg: Money;
+  total_price: Money;
+  amount_paid: Money;
+  balance: Money;
   supplier_name: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
@@ -49,3 +60,7 @@ export interface Database {
 //   payable_transaction: PayableTransactionTable;
   admin: AdminTable;
 }
+
+export type RollIntake = Selectable<RollIntakeTable>;
+export type NewRollIntake = Insertable<RollIntakeTable>
+export type UpdateRollIntake = Updateable<RollIntakeTable>
