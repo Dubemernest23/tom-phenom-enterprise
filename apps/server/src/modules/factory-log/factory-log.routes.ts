@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { notImplemented } from '../../utils/asyncHandler';
+import { factoryLogController } from './factory-log.controller.js';
 
 export const factoryLogRouter = Router();
 
-factoryLogRouter.get('/', notImplemented('Factory log', 'list'));
-factoryLogRouter.post('/', notImplemented('Factory log', 'create'));
+factoryLogRouter.get('/', factoryLogController.list);
+factoryLogRouter.post('/', factoryLogController.create);

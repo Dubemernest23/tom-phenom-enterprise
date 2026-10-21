@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { ZodError } from 'zod';
-import { env } from '../config/env';
+import { env } from '../config/env.js';
+import { AppError } from '../shared/appError.js';
 
 export const notFoundHandler: RequestHandler = (req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.originalUrl}` });
@@ -11,6 +12,15 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     res.status(400).json({
       error: 'Invalid request data.',
       issues: err.issues,
+    });
+    return;
+  }
+
+  if (err instanceof AppError) {
+    res.status(err.statusCode).json({
+      error: env.nodeEnv === 'production' && err.statusCode >= 500
+        ? 'Internal server error.'
+        : err.message,
     });
     return;
   }

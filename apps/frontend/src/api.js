@@ -14,7 +14,15 @@ async function request(path, options = {}) {
   if (config.body && typeof config.body === 'object') {
     config.body = JSON.stringify(config.body);
   }
-  const res = await fetch(url, config);
+  let res;
+  try {
+    res = await fetch(url, config);
+  } catch (err) {
+    if (err instanceof TypeError) {
+      throw new Error(`Cannot reach the API at ${API_BASE_URL}. Check that the backend is running and that its CORS_ORIGIN matches this page.`);
+    }
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   if (res.status === 401) {
     clearSession();
@@ -25,18 +33,23 @@ async function request(path, options = {}) {
   return data;
 }
 
+// Builds "?a=1&b=2" from an object, skipping empty values. Returns '' when nothing is left.
+const toQuery = (params = {}) => {
+  const query = new URLSearchParams(
+    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
+  ).toString();
+  return query ? `?${query}` : '';
+};
+
 // Auth
 export const login = (credentials) => request('/auth/login', { method: 'POST', body: credentials });
 export const logout = () => request('/auth/logout', { method: 'POST' });
 
 // Roll Intake
-// export const getRollIntakes = () => request('/roll-intake');
-export const getRollIntakes = (params = {}) => {
-  const query = new URLSearchParams(
-    Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== '')
-  ).toString();
-  return request(`/roll-intake${query ? `?${query}` : ''}`);
-};
+// getRollIntakes returns { items, nextCursor }. params: { from, to, limit, cursor }.
+export const getRollIntakes = (params) => request(`/roll-intake${toQuery(params)}`);
+// getRollIntakeSummary returns the running position with the supplier. params: { from, to }.
+export const getRollIntakeSummary = (params) => request(`/roll-intake/summary${toQuery(params)}`);
 export const createRollIntake = (data) => request('/roll-intake', { method: 'POST', body: data });
 
 // Packing Bags

@@ -11,7 +11,8 @@ const toNumber = (value: string | undefined, fallback: number): number => {
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   port: toNumber(process.env.PORT, 4000),
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173')
+    .split(',').map((origin) => origin.trim()).filter(Boolean),
   databaseUrl: process.env.DATABASE_URL,
   isDevelopment: process.env.NODE_ENV === 'development',
   isProduction: process.env.NODE_ENV === 'production',

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { HttpStatus } from '../shared/httpsStatus';
+import { HttpStatus } from '../shared/httpsStatus.js';
 
 interface SuccessResponse<T> {
   success: true;

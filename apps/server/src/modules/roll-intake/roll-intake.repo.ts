@@ -15,6 +15,22 @@ export interface RollIntakeListFilter {
     limit: number;
 }
 
+export interface RollIntakeSummaryFilter {
+    from?: string;
+    to?: string;
+}
+
+/**
+ * Raw aggregates straight from MySQL. SUM() of DECIMAL columns comes back as a
+ * string, and as null when no row matches, so the service normalises both.
+ */
+export interface RollIntakeTotals {
+    total_value: string | null;
+    total_paid: string | null;
+    net_balance: string | null;
+    entries: number | string;
+}
+
 /**
  * Data access only. total_price and balance are computed by the service layer
  * and passed in already calculated; the repository never does money math.
@@ -72,6 +88,30 @@ export class RollIntakeRepository {
             .orderBy('id', 'desc')
             .limit(filter.limit)
             .execute();
+    }
+
+    /**
+     * One-row aggregate over the same date range the list uses. net_balance is
+     * SUM(balance): positive means you owe the supplier, negative means the
+     * supplier owes you.
+     */
+    async summarize(filter: RollIntakeSummaryFilter): Promise<RollIntakeTotals> {
+        let query = this.db.selectFrom('roll_intake').select((eb) => [
+            eb.fn.sum<string>('total_price').$castTo<string | null>().as('total_value'),
+            eb.fn.sum<string>('amount_paid').$castTo<string | null>().as('total_paid'),
+            eb.fn.sum<string>('balance').$castTo<string | null>().as('net_balance'),
+            eb.fn.countAll<number>().as('entries'),
+        ]);
+
+        if (filter.from) {
+            query = query.where('intake_date', '>=', filter.from);
+        }
+
+        if (filter.to) {
+            query = query.where('intake_date', '<=', filter.to);
+        }
+
+        return query.executeTakeFirstOrThrow();
     }
 
     /** Returns undefined when no row has that id, so the service can answer 404. */

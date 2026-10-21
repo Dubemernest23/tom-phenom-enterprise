@@ -23,11 +23,17 @@ const nonNegativeMoney = (max: number) =>
         .max(max, 'is too large')
         .refine(hasAtMostTwoDecimals, 'can have at most 2 decimal places');
 
+const dateField = z.iso.date('must be a date in YYYY-MM-DD format');
+
 // Shared field definitions. amount_paid has NO default here on purpose: in Zod 4 a
 // default inside .partial() is still applied, so a PATCH body without amount_paid
 // would silently reset it to 0. The default is added only for create, below.
+//
+// amount_paid is allowed to be MORE or LESS than the delivery is worth. The
+// difference is the signed balance: positive means you owe the supplier, negative
+// means the supplier owes you.
 const fields = {
-    intake_date: z.iso.date('must be a date in YYYY-MM-DD format'),
+    intake_date: dateField,
     quantity_rolls: z
         .number()
         .int('must be a whole number')
@@ -58,10 +64,19 @@ export const idParamSchema = z.object({
 });
 
 // from and to are inclusive. YYYY-MM-DD strings compare correctly as plain text.
+const dateRange = {
+    from: dateField.optional(),
+    to: dateField.optional(),
+};
+
+const rangeIsOrdered = (range: { from?: string | undefined; to?: string | undefined }): boolean =>
+    !range.from || !range.to || range.from <= range.to;
+
+const rangeIssue = { message: '"from" must not be after "to"', path: ['from'] };
+
 export const listRollIntakeQuerySchema = z
     .object({
-        from: z.iso.date('must be a date in YYYY-MM-DD format').optional(),
-        to: z.iso.date('must be a date in YYYY-MM-DD format').optional(),
+        ...dateRange,
         limit: z.coerce
             .number()
             .int('must be a whole number')
@@ -70,11 +85,11 @@ export const listRollIntakeQuerySchema = z
             .default(20),
         cursor: z.string().min(1).optional(),
     })
-    .refine((query) => !query.from || !query.to || query.from <= query.to, {
-        message: '"from" must not be after "to"',
-        path: ['from'],
-    });
+    .refine(rangeIsOrdered, rangeIssue);
+
+export const summaryRollIntakeQuerySchema = z.object(dateRange).refine(rangeIsOrdered, rangeIssue);
 
 export type CreateRollIntakeInput = z.infer<typeof createRollIntakeSchema>;
 export type UpdateRollIntakeInput = z.infer<typeof updateRollIntakeSchema>;
 export type ListRollIntakeQuery = z.infer<typeof listRollIntakeQuerySchema>;
+export type SummaryRollIntakeQuery = z.infer<typeof summaryRollIntakeQuerySchema>;

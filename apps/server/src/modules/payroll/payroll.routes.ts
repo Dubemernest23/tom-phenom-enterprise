@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { notImplemented } from '../../utils/asyncHandler';
+import { notImplemented } from '../../utils/asyncHandler.js';
 
 export const payrollRouter = Router();
 

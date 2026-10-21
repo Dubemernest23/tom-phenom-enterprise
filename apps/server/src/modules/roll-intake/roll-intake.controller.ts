@@ -6,9 +6,9 @@ import {
     createRollIntakeSchema,
     idParamSchema,
     listRollIntakeQuerySchema,
+    summaryRollIntakeQuerySchema,
     updateRollIntakeSchema,
 } from './roll-intake.val.js';
-
 
 /**
  * Validates data against a schema and turns the first problem into a plain
@@ -44,6 +44,11 @@ export const rollIntakeController = {
     async list(req: Request, res: Response): Promise<void> {
         const query = parse(listRollIntakeQuerySchema, req.query);
         res.json(await rollIntakeService.list(query));
+    },
+
+    async summary(req: Request, res: Response): Promise<void> {
+        const query = parse(summaryRollIntakeQuerySchema, req.query);
+        res.json(await rollIntakeService.summary(query));
     },
 
     async getById(req: Request, res: Response): Promise<void> {

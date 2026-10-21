@@ -5,7 +5,6 @@ import type {
   Selectable,
   Updateable,
 } from 'kysely';
-import { number } from 'zod';
 
 type Money = ColumnType<string,string | number,string | number>;
 
@@ -27,11 +26,33 @@ export interface RollIntakeTable {
 
 export interface PackingBagBatchTable {
   id: Generated<number>;
-  received_date: Date;
+  received_date: DateOnly;
   quantity_received: number;
   quantity_used: number;
   quantity_remaining: number;
   note: string | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export interface PackingBagUsageLogTable {
+  id: Generated<number>;
+  batch_id: number;
+  usage_date: DateOnly;
+  quantity_used: number;
+  created_at: Generated<Date>;
+}
+
+export interface DailyFactoryLogTable {
+  id: Generated<number>;
+  log_date: DateOnly;
+  opening_stock: number;
+  closing_stock: number;
+  distribution_qty: number;
+  in_house_qty: number;
+  total_2: number;
+  total_1: number;
+  production: number;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -48,8 +69,8 @@ export interface AdminTable {
 export interface Database {
   roll_intake: RollIntakeTable;
   packing_bag_batch: PackingBagBatchTable;
-//   packing_bag_usage_log: PackingBagUsageLogTable;
-//   daily_factory_log: DailyFactoryLogTable;
+  packing_bag_usage_log: PackingBagUsageLogTable;
+  daily_factory_log: DailyFactoryLogTable;
 //   distribution_record: DistributionRecordTable;
 //   customer: CustomerTable;
 //   customer_transaction: CustomerTransactionTable;
@@ -64,3 +85,9 @@ export interface Database {
 export type RollIntake = Selectable<RollIntakeTable>;
 export type NewRollIntake = Insertable<RollIntakeTable>
 export type UpdateRollIntake = Updateable<RollIntakeTable>
+export type PackingBagBatch = Selectable<PackingBagBatchTable>;
+export type NewPackingBagBatch = Insertable<PackingBagBatchTable>;
+export type PackingBagUsageLog = Selectable<PackingBagUsageLogTable>;
+export type NewPackingBagUsageLog = Insertable<PackingBagUsageLogTable>;
+export type DailyFactoryLog = Selectable<DailyFactoryLogTable>;
+export type NewDailyFactoryLog = Insertable<DailyFactoryLogTable>;

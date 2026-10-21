@@ -1,4 +1,4 @@
-import {Decimal} from 'decimal.js';
+import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 import type { RollIntake } from '../../database/types.js';
 import { BadRequestError, NotFoundError } from '../../shared/appError.js';
@@ -6,6 +6,7 @@ import { rollIntakeRepository, type RollIntakeRepository } from './roll-intake.r
 import type {
     CreateRollIntakeInput,
     ListRollIntakeQuery,
+    SummaryRollIntakeQuery,
     UpdateRollIntakeInput,
 } from './roll-intake.val.js';
 
@@ -39,10 +40,33 @@ export interface RollIntakePage {
     nextCursor: string | null;
 }
 
+/** Who owes whom, seen from your side. */
+export type RollIntakePosition = 'you_owe' | 'supplier_owes_you' | 'settled';
+
+export interface RollIntakeSummary {
+    /** Number of roll intake records in the range. */
+    entries: number;
+    /** What the deliveries were worth: SUM(total_price). */
+    total_value: string;
+    /** What you paid: SUM(amount_paid). */
+    total_paid: string;
+    /** total_value - total_paid. Positive: you owe the supplier. Negative: the supplier owes you. */
+    net_balance: string;
+    position: RollIntakePosition;
+    /** Absolute size of net_balance, ready to display next to the position. */
+    amount: string;
+}
+
 export class RollIntakeService {
     constructor(private readonly repo: RollIntakeRepository) {}
 
-    /** The one place the money math lives. Used by create and update. */
+    /**
+     * The one place the money math lives. Used by create and update.
+     *
+     * balance is SIGNED. Paying more than a delivery is worth is allowed (the
+     * supplier now owes you, so balance is negative) and so is paying less (you
+     * owe the supplier, so balance is positive).
+     */
     private calculateTotals(
         totalKg: Decimal.Value,
         pricePerKg: Decimal.Value,
@@ -51,19 +75,14 @@ export class RollIntakeService {
         const totalPrice = new Decimal(totalKg)
             .mul(pricePerKg)
             .toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
-        const paid = new Decimal(amountPaid);
 
         if (totalPrice.gt(MAX_MONEY)) {
             throw new BadRequestError('Total price is too large.');
         }
 
-        if (paid.gt(totalPrice)) {
-            throw new BadRequestError("Amount paid can't be more than the total price.");
-        }
-
         return {
             total_price: totalPrice.toFixed(2),
-            balance: totalPrice.minus(paid).toFixed(2),
+            balance: totalPrice.minus(amountPaid).toFixed(2),
         };
     }
 
@@ -103,6 +122,25 @@ export class RollIntakeService {
         return {
             items,
             nextCursor: hasMore && last ? encodeCursor(last) : null,
+        };
+    }
+
+    /**
+     * Running position with the supplier. With no dates it covers every record,
+     * which is what is owed right now. With a date range it only describes the
+     * activity inside that range.
+     */
+    async summary(query: SummaryRollIntakeQuery): Promise<RollIntakeSummary> {
+        const totals = await this.repo.summarize({ from: query.from, to: query.to });
+        const net = new Decimal(totals.net_balance ?? 0);
+
+        return {
+            entries: Number(totals.entries),
+            total_value: new Decimal(totals.total_value ?? 0).toFixed(2),
+            total_paid: new Decimal(totals.total_paid ?? 0).toFixed(2),
+            net_balance: net.toFixed(2),
+            position: net.gt(0) ? 'you_owe' : net.lt(0) ? 'supplier_owes_you' : 'settled',
+            amount: net.abs().toFixed(2),
         };
     }
 

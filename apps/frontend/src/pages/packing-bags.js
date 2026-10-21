@@ -10,7 +10,7 @@ export async function render(container) {
 
     <form id="batch-form" class="mt-6 flex flex-col gap-4">
       ${formField({ name: 'received_date', label: 'Date received', type: 'date', value: todayISO() })}
-      ${formField({ name: 'quantity_received', label: 'Quantity received', type: 'number', inputmode: 'numeric', min: 0 })}
+      ${formField({ name: 'quantity_received', label: 'Quantity received', type: 'number', inputmode: 'numeric', min: 1 })}
       ${formField({ name: 'note', label: 'Note (optional)', required: false, placeholder: 'e.g. supplier, batch reference' })}
       <button type="submit" class="mt-2 min-h-11 w-full rounded-lg bg-primary px-4 py-3 text-base font-medium text-surface hover:bg-primary-dark">Add batch</button>
     </form>

@@ -22,7 +22,26 @@ export const createApp = () => {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: env.corsOrigin }));
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin || env.corsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      // In local development, allow the frontend preview on port 5173 when it
+      // is opened through localhost, a LAN address, or another hostname.
+      let isLocalPreview = false;
+      if (env.isDevelopment) {
+        try {
+          isLocalPreview = new URL(origin).protocol === 'http:' && new URL(origin).port === '5173';
+        } catch {
+          isLocalPreview = false;
+        }
+      }
+      callback(isLocalPreview ? null : new Error('Origin is not allowed by CORS'), isLocalPreview);
+    },
+  }));
   app.use(express.json());
   app.use(express.urlencoded({extended: true}))
   app.use(morgan(env.nodeEnv === 'production' ? 'combined' : 'dev'));
