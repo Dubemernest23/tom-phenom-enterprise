@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { notImplemented } from '../../utils/asyncHandler.js';
+import { customersController } from './customers.controller.js';
 
 export const customersRouter = Router();
 
-customersRouter.get('/', notImplemented('Customers', 'list'));
-customersRouter.post('/', notImplemented('Customers', 'create'));
-customersRouter.get('/:id', notImplemented('Customers', 'detail'));
-customersRouter.post('/:id/transactions', notImplemented('Customers', 'add transaction'));
+customersRouter.get('/', customersController.list);
+customersRouter.post('/', customersController.create);
+customersRouter.get('/:id', customersController.getById);
+customersRouter.post('/:id/transactions', customersController.addTransaction);
+customersRouter.patch('/:id/transactions/:transactionId', customersController.updateTransaction);

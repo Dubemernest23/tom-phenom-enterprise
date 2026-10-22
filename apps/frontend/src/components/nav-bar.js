@@ -1,5 +1,5 @@
 import { tpMonogram, wordmark, splashMarkup } from './logo.js';
-import { clearSession } from '../state.js';
+import { clearSession, getUserRole } from '../state.js';
 
 function svg(cls, inner) {
   return `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
@@ -28,14 +28,18 @@ const SIDEBAR_ITEMS = [
   { route: '/distribution', label: 'Distribution', icon: 'truck' },
   { route: '/customers', label: 'Customers', icon: 'person' },
   { route: '/payroll', label: 'Payroll', icon: 'naira' },
+  { route: '/staff', label: 'Staffing', icon: 'person' },
   { route: '/maintenance', label: 'Maintenance', icon: 'wrench' },
+  { route: '/inspections', label: 'Inspections', icon: 'clipboard' },
+  { route: '/taxes', label: 'Taxes', icon: 'ledger' },
   { route: '/payables', label: 'Payables', icon: 'ledger' },
+  { route: '/users', label: 'Access accounts', icon: 'person', adminOnly: true },
 ];
 
 const GROUP_PATHS = {
   factory: ['/roll-intake', '/packing-bags', '/factory-log'],
   money: ['/customers', '/payables'],
-  more: ['/distribution', '/payroll', '/maintenance'],
+  more: ['/distribution', '/payroll', '/staff', '/maintenance', '/inspections', '/taxes'],
 };
 
 const GROUPS = Object.fromEntries(
@@ -70,7 +74,7 @@ function tabButton(id) {
 function sidebarLink(item) {
   return `
     <a href="#${item.route}" data-sidebar-route="${item.route}"
-      class="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-lg font-medium text-ink-muted hover:bg-surface-alt">
+      data-admin-only="${item.adminOnly ? 'true' : 'false'}" class="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-lg font-medium text-ink-muted hover:bg-surface-alt">
       <span class="shrink-0">${I[item.icon]('h-6 w-6')}</span>
       ${item.label}
     </a>`;
@@ -113,6 +117,7 @@ export function mountShell(app) {
   const view = shell.querySelector('#view');
   view.innerHTML = splashMarkup();
   wire(shell);
+  updateRoleNavigation(shell);
 
   return view;
 }
@@ -130,9 +135,10 @@ function wire(shell) {
     }
     const group = GROUPS[btn.dataset.group];
     if (group) {
+      const items = group.items.filter((item) => canSeeItem(item));
       showSheet({
         title: group.label,
-        sections: [{ label: null, items: group.items }],
+        sections: [{ label: null, items }],
       });
     }
   });
@@ -143,15 +149,38 @@ function wire(shell) {
       showSignOut: true,
       sections: [
         { label: null, items: [{ route: '/dashboard', label: 'Dashboard', icon: 'dashboard' }] },
-        { label: 'Factory', items: GROUPS.factory.items },
-        { label: 'Money', items: GROUPS.money.items },
-        { label: 'More', items: GROUPS.more.items },
+        { label: 'Factory', items: GROUPS.factory.items.filter(canSeeItem) },
+        { label: 'Money', items: GROUPS.money.items.filter(canSeeItem) },
+        { label: 'More', items: [...GROUPS.more.items.filter(canSeeItem), ...SIDEBAR_ITEMS.filter((item) => item.adminOnly && canSeeItem(item))] },
       ],
     });
   });
 
   window.addEventListener('hashchange', () => updateActive(shell));
   updateActive(shell);
+}
+
+function canSeeItem(item) {
+  const role = getUserRole();
+  if (item.adminOnly && role !== 'ADMIN') return false;
+  if (role === 'SUPERVISOR' && ['/staff', '/payroll', '/payables'].includes(item.route)) return false;
+  return true;
+}
+
+export function updateRoleNavigation(shell) {
+  const role = getUserRole();
+  shell.querySelectorAll('[data-sidebar-route]').forEach((link) => {
+    const item = SIDEBAR_ITEMS.find((candidate) => candidate.route === link.dataset.sidebarRoute);
+    const hide = item ? !canSeeItem(item) : false;
+    link.hidden = hide;
+    link.style.display = hide ? 'none' : '';
+  });
+  shell.querySelectorAll('[data-tab="money"], [data-tab="more"]').forEach((tab) => {
+    if (role !== 'SUPERVISOR') return;
+    if (tab.dataset.group === 'money') tab.hidden = GROUPS.money.items.every((item) => !canSeeItem(item));
+    if (tab.dataset.group === 'more') tab.hidden = GROUPS.more.items.every((item) => !canSeeItem(item));
+    tab.style.display = tab.hidden ? 'none' : '';
+  });
 }
 
 function showSheet({ title, sections, showSignOut }) {

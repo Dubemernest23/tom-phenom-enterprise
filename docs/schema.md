@@ -135,6 +135,7 @@ CREATE TABLE customer (
 -- quantity and price_given allow 0 so a pure payment (no new sale) can be
 -- recorded. That row has a negative balance, and the customer's total debt is
 -- SUM(balance).
+-- payment_date records when money was received, which may be later than sale date.
 CREATE TABLE customer_transaction (
   id INT AUTO_INCREMENT PRIMARY KEY,
   customer_id INT NOT NULL,
@@ -143,6 +144,9 @@ CREATE TABLE customer_transaction (
   price_given DECIMAL(10,2) NOT NULL,
   amount_expected DECIMAL(12,2) NOT NULL,    -- quantity * price_given
   amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
+  payment_method ENUM('cash', 'transfer'),
+  payment_status ENUM('paid', 'pay_later') NOT NULL DEFAULT 'pay_later',
+  payment_date DATE,
   balance DECIMAL(12,2) NOT NULL,            -- amount_expected - amount_paid
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -162,7 +166,16 @@ CREATE TABLE worker (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   role VARCHAR(80),
-  base_salary DECIMAL(12,2) NOT NULL,
+  state_of_origin VARCHAR(40),
+  base_salary DECIMAL(12,2),              -- NULL for variable weekly and daily pay
+  start_date DATE,
+  salary_frequency ENUM('weekly', 'monthly', 'daily') NOT NULL DEFAULT 'monthly',
+  rvs_status ENUM('not_tested', 'negative', 'positive') NOT NULL DEFAULT 'not_tested',
+  hepatitis_b_status ENUM('not_tested', 'negative', 'positive') NOT NULL DEFAULT 'not_tested',
+  hepatitis_c_status ENUM('not_tested', 'negative', 'positive') NOT NULL DEFAULT 'not_tested',
+  vdrl_status ENUM('not_tested', 'negative', 'positive') NOT NULL DEFAULT 'not_tested',
+  genotype VARCHAR(5),
+  blood_group VARCHAR(5),
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT chk_worker_salary CHECK (base_salary >= 0)
@@ -172,6 +185,7 @@ CREATE TABLE salary_record (
   id INT AUTO_INCREMENT PRIMARY KEY,
   worker_id INT NOT NULL,
   pay_period VARCHAR(20) NOT NULL,           -- e.g. '2026-09'
+  due_date DATE,
   salary_due DECIMAL(12,2) NOT NULL,
   advance DECIMAL(12,2) NOT NULL DEFAULT 0,
   amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
@@ -185,6 +199,47 @@ CREATE TABLE salary_record (
     CHECK (salary_due >= 0 AND advance >= 0 AND amount_paid >= 0),
   CONSTRAINT chk_salary_balance
     CHECK (balance = salary_due - advance - amount_paid)
+);
+
+CREATE TABLE staff_rating (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  worker_id INT NOT NULL,
+  rating_month DATE NOT NULL,
+  rating DECIMAL(3,1) NOT NULL,
+  note VARCHAR(255),
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_staff_rating_month (worker_id, rating_month),
+  FOREIGN KEY (worker_id) REFERENCES worker(id) ON DELETE RESTRICT,
+  CONSTRAINT chk_staff_rating CHECK (rating >= 1 AND rating <= 5)
+);
+
+CREATE TABLE inspection_record (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  agency_name VARCHAR(120) NOT NULL,
+  checked_items TEXT NOT NULL,
+  inspection_date DATE NOT NULL,
+  recommendations TEXT,
+  fee_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
+  tips_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_inspection_date (inspection_date)
+);
+
+CREATE TABLE tax_record (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  tax_name VARCHAR(120) NOT NULL,
+  description VARCHAR(255) NOT NULL,
+  frequency ENUM('monthly', 'yearly') NOT NULL,
+  period_label VARCHAR(20) NOT NULL,
+  due_date DATE NOT NULL,
+  amount_due DECIMAL(12,2) NOT NULL DEFAULT 0,
+  amount_paid DECIMAL(12,2) NOT NULL DEFAULT 0,
+  payment_date DATE,
+  balance DECIMAL(12,2) NOT NULL,
+  UNIQUE KEY uq_tax_period (tax_name, description, period_label),
+  CONSTRAINT chk_tax_balance CHECK (balance = amount_due - amount_paid)
 );
 
 -- ========================

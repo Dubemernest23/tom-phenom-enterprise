@@ -1,12 +1,13 @@
-import { getPackingBagBatches, createPackingBagBatch, usePackingBagBatch } from '../api.js';
+import { getPackingBagBatches, getPackingBagBatch, createPackingBagBatch, usePackingBagBatch } from '../api.js';
 import { formField } from '../components/form-field.js';
 import { formatNumber, formatDate, todayISO, escapeHtml } from '../utils.js';
+import { attachFormModal } from '../components/form-modal.js';
 
 const inputClass = 'w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-base text-ink placeholder:text-ink-muted focus:border-primary';
 
 export async function render(container) {
   container.innerHTML = `
-    <h1 class="font-heading text-xl font-semibold text-ink">Packing bags</h1>
+    <div class="flex items-center justify-between gap-3"><h1 class="font-heading text-xl font-semibold text-ink">Packing bags</h1><button type="button" id="new-batch" class="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-surface">+ Add batch</button></div>
 
     <form id="batch-form" class="mt-6 flex flex-col gap-4">
       ${formField({ name: 'received_date', label: 'Date received', type: 'date', value: todayISO() })}
@@ -23,6 +24,7 @@ export async function render(container) {
   var form = container.querySelector('#batch-form');
   var msgEl = container.querySelector('#batch-msg');
   var listEl = container.querySelector('#batch-list');
+  const batchModal = attachFormModal(container, form, container.querySelector('#new-batch'), 'Add packing bag batch');
 
   loadList(listEl);
 
@@ -45,6 +47,7 @@ export async function render(container) {
     msgEl.innerHTML = '<p class="rounded-lg border border-positive bg-surface p-4 text-positive">Batch added.</p>';
     form.reset();
     form.elements.received_date.value = todayISO();
+    batchModal.close();
     loadList(listEl);
   });
 }
@@ -77,9 +80,11 @@ function batchRow(b) {
         <span class="min-w-0 flex-1 text-sm tabular-nums text-ink">${formatDate(dateOf(b))}</span>
         <span class="text-sm tabular-nums text-ink-muted">In: <span class="text-ink">${formatNumber(b.quantity_received)}</span></span>
         <span class="text-sm tabular-nums font-semibold text-ink">Remaining: <span data-remaining>${formatNumber(b.quantity_remaining)}</span></span>
+        <button type="button" data-toggle-details class="min-h-11 rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink">Usage history</button>
         <button type="button" data-toggle-use class="min-h-11 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary hover:bg-primary hover:text-surface">Use bags</button>
       </div>
       ${b.note ? '<p class="mt-1 text-xs text-ink-muted">' + escapeHtml(b.note) + '</p>' : ''}
+      <div class="mt-3 hidden" data-batch-details aria-live="polite"></div>
       <div class="mt-3 hidden" data-use-form>
         <form data-use-inner>
           <div class="flex flex-col gap-1.5">
@@ -91,27 +96,53 @@ function batchRow(b) {
             <input type="number" id="use-qty-${b.id}" name="quantity_used" inputmode="numeric" min="1" class="${inputClass}" required>
           </div>
           <button type="submit" class="mt-3 min-h-11 w-full rounded-lg bg-primary px-4 py-3 text-sm font-medium text-surface hover:bg-primary-dark">Save usage</button>
+          <p class="mt-2 text-sm text-debt" data-use-msg></p>
         </form>
-        <p class="mt-2 text-sm text-debt" data-use-msg></p>
       </div>
     </div>`;
 }
 
 function wireUseForms(listEl) {
-  listEl.querySelectorAll('[data-toggle-use]').forEach(function (btn) {
-    btn.addEventListener('click', () => {
+  listEl.querySelectorAll('[data-toggle-details]').forEach(function (btn) {
+    btn.addEventListener('click', async () => {
       var row = btn.closest('[data-batch]');
-      var useForm = row.querySelector('[data-use-form]');
-      var open = useForm.classList.contains('hidden');
-      if (open) {
-        useForm.classList.remove('hidden');
-        useForm.querySelector('input[name="usage_date"]').value = todayISO();
-        useForm.querySelector('input[name="quantity_used"]').value = '';
-        useForm.querySelector('[data-use-msg]').innerHTML = '';
-        useForm.querySelector('input[name="quantity_used"]').focus();
-      } else {
-        useForm.classList.add('hidden');
+      var details = row.querySelector('[data-batch-details]');
+      var open = details.classList.contains('hidden');
+      if (!open) {
+        details.classList.add('hidden');
+        btn.textContent = 'Usage history';
+        return;
       }
+
+      details.classList.remove('hidden');
+      btn.textContent = 'Hide history';
+      if (details.dataset.loaded === 'true') return;
+      details.innerHTML = '<p class="py-2 text-sm text-ink-muted">Loading usage history...</p>';
+      try {
+        var result = await getPackingBagBatch(row.dataset.batch);
+        var history = result.usage_history || [];
+        details.innerHTML = history.length
+          ? '<h3 class="text-sm font-medium text-ink">Usage by date</h3>' + history.map(function (entry) {
+            return '<div class="flex justify-between gap-3 border-b border-line py-2 text-sm"><span class="text-ink-muted">' + formatDate(entry.usage_date) + '</span><span class="font-medium tabular-nums text-ink">' + formatNumber(entry.quantity_used) + ' bags</span></div>';
+          }).join('')
+          : '<p class="py-2 text-sm text-ink-muted">No usage has been recorded for this batch.</p>';
+        details.dataset.loaded = 'true';
+      } catch (err) {
+        details.innerHTML = '<p class="py-2 text-sm text-debt">' + escapeHtml(err.message) + '</p>';
+      }
+    });
+  });
+
+  listEl.querySelectorAll('[data-toggle-use]').forEach(function (btn) {
+    const row = btn.closest('[data-batch]');
+    const useForm = row.querySelector('[data-use-form]');
+    const formEl = useForm.querySelector('[data-use-inner]');
+    const useModal = attachFormModal(row, formEl, btn, 'Record packing bag usage');
+    btn.addEventListener('click', () => {
+      formEl.querySelector('input[name="usage_date"]').value = todayISO();
+      formEl.querySelector('input[name="quantity_used"]').value = '';
+      row.querySelector('[data-use-msg]').innerHTML = '';
+      useModal.open();
     });
   });
 
@@ -121,7 +152,7 @@ function wireUseForms(listEl) {
       var row = formEl.closest('[data-batch]');
       var id = row.dataset.batch;
       var useForm = row.querySelector('[data-use-form]');
-      var msgEl = row.querySelector('[data-use-msg]');
+      var msgEl = formEl.querySelector('[data-use-msg]');
       msgEl.innerHTML = '';
 
       var fd = new FormData(formEl);
@@ -150,6 +181,9 @@ function wireUseForms(listEl) {
       } else {
         msgEl.innerHTML = 'Saved.';
       }
+
+      row.querySelector('[data-batch-details]').dataset.loaded = 'false';
+      formEl.closest('[data-form-modal]')?.querySelector('[data-modal-close]')?.click();
 
       useForm.querySelector('input[name="usage_date"]').value = todayISO();
       useForm.querySelector('input[name="quantity_used"]').value = '';

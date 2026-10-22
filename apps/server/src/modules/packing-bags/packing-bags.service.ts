@@ -9,6 +9,12 @@ export class PackingBagsService {
     return this.repo.list();
   }
 
+  async getById(id: number) {
+    const detail = await this.repo.findById(id);
+    if (!detail) throw new NotFoundError('Packing bag batch not found');
+    return detail;
+  }
+
   create(input: CreatePackingBagBatchInput) {
     return this.repo.create({
       received_date: input.received_date,

@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { z } from 'zod';
 import { BadRequestError } from '../../shared/appError.js';
 import { factoryLogService } from './factory-log.service.js';
-import { createFactoryLogSchema } from './factory-log.val.js';
+import { createFactoryLogSchema, factoryLogIdSchema } from './factory-log.val.js';
 
 const parse = <S extends z.ZodType>(schema: S, data: unknown): z.output<S> => {
   const result = schema.safeParse(data);
@@ -22,5 +22,10 @@ export const factoryLogController = {
   async create(req: Request, res: Response): Promise<void> {
     const input = parse(createFactoryLogSchema, req.body);
     res.status(201).json(await factoryLogService.create(input));
+  },
+  async update(req: Request, res: Response): Promise<void> {
+    const { id } = parse(factoryLogIdSchema, req.params);
+    const input = parse(createFactoryLogSchema, req.body);
+    res.json(await factoryLogService.update(id, input));
   },
 };

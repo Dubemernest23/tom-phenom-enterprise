@@ -2,6 +2,7 @@ import { getRollIntakes, getRollIntakeSummary, createRollIntake } from '../api.j
 import { formField } from '../components/form-field.js';
 import { listRow } from '../components/list-row.js';
 import { formatNaira, formatDate, todayISO, escapeHtml } from '../utils.js';
+import { attachFormModal } from '../components/form-modal.js';
 
 const PAGE_SIZE = 20;
 
@@ -57,7 +58,7 @@ function renderPosition(s, filtered) {
 
 export async function render(container) {
   container.innerHTML = `
-    <h1 class="font-heading text-xl font-semibold text-ink">Roll intake</h1>
+    <div class="flex items-center justify-between gap-3"><h1 class="font-heading text-xl font-semibold text-ink">Roll intake</h1><button type="button" id="new-roll" class="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-surface">+ New intake</button></div>
 
     <form id="roll-intake-form" class="mt-6 flex flex-col gap-4">
       ${formField({ name: 'intake_date', label: 'Date', type: 'date', value: todayISO() })}
@@ -74,6 +75,7 @@ export async function render(container) {
 
     <h2 class="mt-8 font-heading text-lg font-semibold text-ink">Recent records</h2>
 
+    <button type="button" id="open-roll-filter" class="mt-3 min-h-11 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary">Filter dates</button>
     <form id="roll-filter" class="mt-3 flex flex-col gap-4">
       ${formField({ name: 'from', label: 'From date', type: 'date', required: false })}
       ${formField({ name: 'to', label: 'To date', type: 'date', required: false })}
@@ -94,6 +96,8 @@ export async function render(container) {
   var positionEl = container.querySelector('#roll-position');
   var listEl = container.querySelector('#roll-list');
   var moreEl = container.querySelector('#roll-more');
+  const intakeModal = attachFormModal(container, form, container.querySelector('#new-roll'), 'New roll intake');
+  const filterModal = attachFormModal(container, filterForm, container.querySelector('#open-roll-filter'), 'Filter roll history');
 
   // The filters are only copied from the form when the user presses Apply or Clear.
   // A cursor is only valid together with the filters it was created under, so
@@ -163,12 +167,15 @@ export async function render(container) {
     var fd = new FormData(filterForm);
     filters = { from: fd.get('from') || '', to: fd.get('to') || '' };
     refresh();
+    filterModal.close();
   });
 
   container.querySelector('#roll-filter-clear').addEventListener('click', function () {
     filterForm.reset();
     filters = { from: '', to: '' };
     refresh();
+
+    intakeModal.close();
   });
 
   moreEl.addEventListener('click', function (e) {

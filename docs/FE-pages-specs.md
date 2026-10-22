@@ -7,8 +7,7 @@ instead of a rough sketch — build to this, not around it.
 
 ## Login (`#/login`) — auth gate
 
-**Purpose:** the only door into the app — a single owner login (per the PRD,
-auth beyond this is out of scope).
+**Purpose:** sign in to the panel with an administrator, manager, or supervisor account.
 **Loads on mount:** nothing.
 **On screen:** the TP monogram and wordmark above a username + password form
 and a full-width "Sign in" button. No nav chrome (header/sidebar/tabs are
@@ -27,7 +26,9 @@ action.
 **Purpose:** one glance at where the business stands today.
 **Loads on mount:** today's factory log (if any), sum of open customer
 balances, sum of open payable balances, this month's total roll kg, current
-total packing bags remaining.
+total packing bags remaining, current week's big-customer sales and receipts,
+current week's Keke and Van quantity/sales/receipts, and today's Keke and Van
+quantity/sales/receipts.
 **On screen:** see the wireframe in `04-design-system.md`. In order:
 today's production hero number (or empty state), two money KPI cards
 (Owed to us / We owe — tappable, route to Customers / Payables), two
@@ -86,10 +87,13 @@ distributor).
 owed, sorted highest-balance first. "+ Add customer" button (name, phone).
 **Detail view (`#/customers/:id`):** customer name/phone at top, running
 total balance as a headline number, transaction history below (date,
-quantity, price given, balance), and an add-transaction form (date,
-quantity, price given, amount expected — optional, leave blank to use
-quantity × price given, amount paid) — submitting shows `amount_expected`
-and `balance` and updates the running total immediately.
+quantity, price, expected amount, received amount, payment method, payment
+status, balance), and an add/edit transaction form (date, quantity, price,
+amount received, cash/transfer method, paid/will pay later status). Expected
+amount is calculated as quantity × price. Submitting shows the expected,
+received, and remaining amounts and updates the running total immediately.
+Record the receipt date separately when payment is received later; older
+transactions keep their historical dates and amounts.
 
 ## 6. Payroll (`#/payroll`, `#/payroll/:id`)
 
@@ -100,14 +104,34 @@ salary due, advance, paid, balance), add-record form (pay period, salary
 due defaulted to base salary but editable, advance, amount paid) —
 submitting shows `balance`.
 
-## 7. Maintenance (`#/maintenance`)
+## 7. Staffing (`#/staff`, `#/staff/:id`)
+
+Staff profiles hold name, role, start date, salary frequency and base pay, the
+requested health-screening fields, genotype and blood group. Health details
+are administrator-only sensitive information. Record one monthly rating from
+1 to 5 with an optional note, and open the linked payroll history from the
+profile. Salary entries use due dates; the dashboard flags due and overdue
+unpaid salaries.
+
+## 8. Inspections (`#/inspections`)
+
+Editable inspection records include agency, date, checked items,
+recommendations, inspection fees and tips paid.
+
+## 9. Taxes (`#/taxes`)
+
+Track the agency/tax name, tax description, monthly or yearly period, due
+date, amount due, amount paid and payment date. The dashboard flags overdue
+tax balances.
+
+## 10. Maintenance (`#/maintenance`)
 
 **Loads:** list of past maintenance records, most recent first, with a
 running total for the current calendar month shown above the list.
 **Form fields:** date, equipment, description, cost, vendor (optional).
 **On submit:** prepend to the list, update the month total.
 
-## 8. Payables (`#/payables`, `#/payables/:id`)
+## 11. Payables (`#/payables`, `#/payables/:id`)
 
 **List view:** every creditor with running balance owed, "+ Add creditor"
 button (name, category).
@@ -120,7 +144,13 @@ submitting shows `balance` and updates the running total (colored
 
 Bottom tabs (mobile): **Dashboard** · **Factory** (→ picker between Roll
 Intake / Packing Bags / Factory Log) · **Money** (→ picker between
-Customers / Payables) · **More** (→ Distribution / Payroll / Maintenance).
+Customers / Payables) · **More** (→ Distribution / Payroll / Maintenance / Staffing / Inspections / Taxes).
 Sidebar (tablet+): all 9 destinations listed individually, Dashboard
 pinned at top. The header menu sheet also carries a **Sign out** action.
 The login page (`#/login`) sits outside this chrome.
+
+## Access roles
+
+- **Admin:** full read and write access, including creating manager and supervisor accounts from `#/users`.
+- **Manager:** read-only access across the panel.
+- **Supervisor:** read-only access except Staffing, Payroll, and Payables, which are denied in both navigation and API authorization.

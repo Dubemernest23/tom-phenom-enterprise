@@ -19,6 +19,10 @@ export const packingBagsController = {
   async list(_req: Request, res: Response): Promise<void> {
     res.json(await packingBagsService.list());
   },
+  async getById(req: Request, res: Response): Promise<void> {
+    const { id } = parse(packingBagIdSchema, req.params);
+    res.json(await packingBagsService.getById(id));
+  },
   async create(req: Request, res: Response): Promise<void> {
     const input = parse(createPackingBagBatchSchema, req.body);
     res.status(201).json(await packingBagsService.create(input));

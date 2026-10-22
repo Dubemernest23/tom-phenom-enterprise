@@ -1,7 +1,8 @@
-import { getCreditors, getCreditor, createCreditor, addPayableTransaction } from '../api.js';
+import { getCreditors, getCreditor, createCreditor, addPayableTransaction, getWorkers } from '../api.js';
 import { formField } from '../components/form-field.js';
 import { listRow, stackedRow } from '../components/list-row.js';
 import { formatNaira, formatDate, todayISO, escapeHtml } from '../utils.js';
+import { attachFormModal } from '../components/form-modal.js';
 
 export async function render(container, params) {
   return params && params.id ? renderDetail(container, params.id) : renderList(container);
@@ -29,6 +30,7 @@ async function renderList(container) {
   var form = container.querySelector('#creditor-form');
   var msgEl = container.querySelector('#creditor-msg');
   var listEl = container.querySelector('#creditor-list');
+  const creditorModal = attachFormModal(container, form, btn, 'Add creditor');
 
   function toggleForm() {
     var hidden = form.classList.contains('hidden');
@@ -37,8 +39,6 @@ async function renderList(container) {
     btn.setAttribute('aria-expanded', hidden ? 'true' : 'false');
     if (hidden) form.elements.name.focus();
   }
-
-  btn.addEventListener('click', toggleForm);
 
   loadList(listEl);
 
@@ -59,7 +59,7 @@ async function renderList(container) {
 
     msgEl.innerHTML = '<p class="rounded-lg border border-positive bg-surface p-4 text-positive">Creditor added.</p>';
     form.reset();
-    toggleForm();
+    creditorModal.close();
     loadList(listEl);
   });
 }
@@ -67,18 +67,23 @@ async function renderList(container) {
 async function loadList(listEl) {
   listEl.innerHTML = '<p class="text-ink-muted py-2">Loading...</p>';
   var creditors;
+  var workers;
   try {
-    creditors = await getCreditors();
+    [creditors, workers] = await Promise.all([getCreditors(), getWorkers()]);
   } catch (err) {
     listEl.innerHTML = '<p class="text-debt py-2">' + err.message + '</p>';
     return;
   }
-  if (!creditors || creditors.length === 0) {
-    listEl.innerHTML = '<p data-empty class="text-ink-muted py-2">No creditors yet. Add the first one above.</p>';
-    return;
-  }
   var sorted = creditors.slice().sort(function (a, b) { return (b.balance || 0) - (a.balance || 0); });
-  listEl.innerHTML = sorted.map(creditorRow).join('');
+  var wages = (workers || []).filter(function (worker) { return Number(worker.balance) > 0; });
+  listEl.innerHTML = '<h2 class="mb-2 mt-3 font-heading text-lg font-semibold text-ink">Supplier balances</h2>' +
+    (sorted.length ? sorted.map(creditorRow).join('') : '<p class="py-2 text-ink-muted">No creditors yet. Add the first one above.</p>') +
+    '<h2 class="mb-2 mt-6 font-heading text-lg font-semibold text-ink">Staff salary balances</h2>' +
+    (wages.length ? wages.map(function (worker) { return listRow([
+      { value: escapeHtml(worker.name), className: 'text-ink' },
+      { value: escapeHtml(worker.salary_frequency) + ' salary', className: 'text-ink-muted' },
+      { value: 'Due ' + formatNaira(worker.balance), className: 'font-semibold text-debt' },
+    ], { href: '#/payroll/' + worker.id }); }).join('') : '<p class="py-2 text-ink-muted">No unpaid staff salaries.</p>');
 }
 
 function creditorRow(c) {
@@ -114,7 +119,7 @@ async function renderDetail(container, id) {
     <p class="mt-4 font-heading text-2xl font-bold tabular-nums ${balance > 0 ? 'text-debt' : 'text-ink-muted'}" data-headline>${formatNaira(balance)}</p>
     <p class="text-sm font-medium text-ink-muted">Outstanding balance</p>
 
-    <h2 class="mt-6 font-heading text-lg font-semibold text-ink">New transaction</h2>
+    <button type="button" id="new-transaction" class="mt-6 min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-surface">+ New transaction</button>
     <form id="txn-form" class="mt-3 flex flex-col gap-4">
       ${formField({ name: 'txn_date', label: 'Date', type: 'date', value: todayISO() })}
       ${formField({ name: 'description', label: 'Description', required: false })}
@@ -131,6 +136,7 @@ async function renderDetail(container, id) {
   var summaryEl = container.querySelector('#txn-summary');
   var historyEl = container.querySelector('#history');
   var headlineEl = container.querySelector('[data-headline]');
+  const transactionModal = attachFormModal(container, form, container.querySelector('#new-transaction'), 'New payable transaction');
 
   if (txns.length === 0) {
     historyEl.innerHTML = '<p data-empty class="text-ink-muted py-2">No transactions yet.</p>';
@@ -172,6 +178,7 @@ async function renderDetail(container, id) {
     balance = balance + Number(result.balance || 0);
     headlineEl.textContent = formatNaira(balance);
     headlineEl.className = 'mt-4 font-heading text-2xl font-bold tabular-nums ' + (balance > 0 ? 'text-debt' : 'text-ink-muted');
+    transactionModal.close();
 
     form.reset();
     form.elements.txn_date.value = todayISO();

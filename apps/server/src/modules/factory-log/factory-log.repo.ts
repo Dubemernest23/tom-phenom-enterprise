@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import type { Database, DailyFactoryLog, NewDailyFactoryLog } from '../../database/types.js';
+import type { Database, DailyFactoryLog, NewDailyFactoryLog, UpdateDailyFactoryLog } from '../../database/types.js';
 import { db } from '../../config/db.js';
 
 export class FactoryLogRepository {
@@ -15,6 +15,17 @@ export class FactoryLogRepository {
       .values(record).executeTakeFirstOrThrow();
     return this.database.selectFrom('daily_factory_log').selectAll()
       .where('id', '=', Number(result.insertId)).executeTakeFirstOrThrow();
+  }
+
+  findById(id: number): Promise<DailyFactoryLog | undefined> {
+    return this.database.selectFrom('daily_factory_log').selectAll()
+      .where('id', '=', id).executeTakeFirst();
+  }
+
+  async update(id: number, changes: UpdateDailyFactoryLog): Promise<DailyFactoryLog | undefined> {
+    await this.database.updateTable('daily_factory_log').set(changes)
+      .where('id', '=', id).execute();
+    return this.findById(id);
   }
 }
 

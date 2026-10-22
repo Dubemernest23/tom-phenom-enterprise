@@ -16,6 +16,29 @@ export class PackingBagsRepository {
       .where('id', '=', Number(result.insertId)).executeTakeFirstOrThrow();
   }
 
+  async findById(id: number): Promise<{
+    batch: PackingBagBatch;
+    usage_history: Array<{ usage_date: string; quantity_used: number }>;
+  } | undefined> {
+    const batch = await this.database.selectFrom('packing_bag_batch').selectAll()
+      .where('id', '=', id).executeTakeFirst();
+    if (!batch) return undefined;
+    const usageRows = await this.database.selectFrom('packing_bag_usage_log')
+      .select((eb) => [
+        'usage_date',
+        eb.fn.sum<string>('quantity_used').$castTo<number>().as('quantity_used'),
+      ])
+      .where('batch_id', '=', id)
+      .groupBy('usage_date')
+      .orderBy('usage_date', 'desc')
+      .execute();
+    const usage_history = usageRows.map((entry) => ({
+      usage_date: entry.usage_date,
+      quantity_used: Number(entry.quantity_used),
+    }));
+    return { batch, usage_history };
+  }
+
   async useBatch(id: number, usageDate: string, quantity: number): Promise<
     | { status: 'not_found' }
     | { status: 'insufficient'; remaining: number }

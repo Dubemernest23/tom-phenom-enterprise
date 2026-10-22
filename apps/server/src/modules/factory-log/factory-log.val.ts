@@ -14,4 +14,8 @@ export const createFactoryLogSchema = z.object({
   in_house_qty: nonNegativeInt,
 });
 
+export const factoryLogIdSchema = z.object({
+  id: z.coerce.number().int('must be a whole number').positive('must be greater than 0'),
+});
+
 export type CreateFactoryLogInput = z.infer<typeof createFactoryLogSchema>;

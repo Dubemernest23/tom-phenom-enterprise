@@ -5,3 +5,4 @@ export const factoryLogRouter = Router();
 
 factoryLogRouter.get('/', factoryLogController.list);
 factoryLogRouter.post('/', factoryLogController.create);
+factoryLogRouter.patch('/:id', factoryLogController.update);

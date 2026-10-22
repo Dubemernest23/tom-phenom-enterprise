@@ -36,4 +36,13 @@ export class AdminService {
       user: { id: admin.id, username: admin.username, role: admin.role },
     };
   }
+
+  async createPanelUser(input: { username: string; password: string; role: 'MANAGER' | 'SUPERVISOR' }) {
+    if (await this.adminRepository.findByUsername(input.username)) {
+      const { ConflictError } = await import('../../shared/appError.js');
+      throw new ConflictError('That username is already in use.');
+    }
+    const password = await bcrypt.hash(input.password, 12);
+    return this.adminRepository.createUser({ ...input, password });
+  }
 }

@@ -2,10 +2,11 @@ import { getMaintenanceRecords, createMaintenanceRecord } from '../api.js';
 import { formField } from '../components/form-field.js';
 import { listRow } from '../components/list-row.js';
 import { formatNaira, formatDate, todayISO, escapeHtml } from '../utils.js';
+import { attachFormModal } from '../components/form-modal.js';
 
 export async function render(container) {
   container.innerHTML = `
-    <h1 class="font-heading text-xl font-semibold text-ink">Maintenance</h1>
+    <div class="flex items-center justify-between gap-3"><h1 class="font-heading text-xl font-semibold text-ink">Maintenance</h1><button type="button" id="new-maintenance" class="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-surface">+ New record</button></div>
 
     <form id="maintenance-form" class="mt-6 flex flex-col gap-4">
       ${formField({ name: 'maint_date', label: 'Date', type: 'date', value: todayISO() })}
@@ -27,6 +28,7 @@ export async function render(container) {
   var msgEl = container.querySelector('#maintenance-msg');
   var totalEl = container.querySelector('#month-total');
   var listEl = container.querySelector('#maintenance-list');
+  const maintenanceModal = attachFormModal(container, form, container.querySelector('#new-maintenance'), 'New maintenance record');
 
   var total = 0;
 
@@ -67,6 +69,7 @@ export async function render(container) {
 
     total = total + Number(result.cost || body.cost || 0);
     renderTotal();
+    maintenanceModal.close();
 
     form.reset();
     form.elements.maint_date.value = todayISO();

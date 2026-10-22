@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { notImplemented } from '../../utils/asyncHandler.js';
+import { maintenanceController } from './maintenance.controller.js';
 
 export const maintenanceRouter = Router();
 
-maintenanceRouter.get('/', notImplemented('Maintenance', 'list'));
-maintenanceRouter.post('/', notImplemented('Maintenance', 'create'));
+maintenanceRouter.get('/', maintenanceController.list);
+maintenanceRouter.post('/', maintenanceController.create);
