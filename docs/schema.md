@@ -248,6 +248,7 @@ CREATE TABLE tax_record (
 CREATE TABLE maintenance_record (
   id INT AUTO_INCREMENT PRIMARY KEY,
   maint_date DATE NOT NULL,
+  maintenance_frequency ENUM('daily', 'weekly', 'monthly') NULL,
   equipment VARCHAR(120) NOT NULL,
   description VARCHAR(255),
   cost DECIMAL(12,2) NOT NULL,

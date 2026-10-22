@@ -10,6 +10,7 @@ export async function render(container) {
 
     <form id="maintenance-form" class="mt-6 flex flex-col gap-4">
       ${formField({ name: 'maint_date', label: 'Date', type: 'date', value: todayISO() })}
+      <div class="flex flex-col gap-1.5"><label for="maintenance_frequency" class="text-sm font-medium text-ink">Maintenance interval</label><select id="maintenance_frequency" name="maintenance_frequency" required class="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-base text-ink"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select><p class="text-xs text-ink-muted">How often this maintenance task is scheduled.</p></div>
       ${formField({ name: 'equipment', label: 'Equipment' })}
       ${formField({ name: 'description', label: 'Description', required: false })}
       ${formField({ name: 'cost', label: 'Cost', type: 'number', inputmode: 'decimal', min: 0, step: '0.01' })}
@@ -46,6 +47,7 @@ export async function render(container) {
     var fd = new FormData(form);
     var body = {
       maint_date: fd.get('maint_date'),
+      maintenance_frequency: fd.get('maintenance_frequency'),
       equipment: String(fd.get('equipment') || '').trim(),
       description: String(fd.get('description') || '').trim() || null,
       cost: Number(fd.get('cost')),
@@ -115,6 +117,7 @@ function maintRow(r) {
   return listRow([
     { value: formatDate(r.maint_date || r.date), className: 'text-ink' },
     { value: escapeHtml(r.equipment), className: 'text-ink' },
+    { value: r.maintenance_frequency ? `${escapeHtml(r.maintenance_frequency)} maintenance` : 'Interval not recorded', className: 'text-ink-muted' },
     { value: escapeHtml(detail), className: 'text-ink-muted' },
     { value: formatNaira(r.cost), className: 'text-ink' },
   ]);

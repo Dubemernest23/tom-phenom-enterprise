@@ -1,5 +1,8 @@
 import { z } from 'zod';
-const money = z.number().nonnegative('must be 0 or more').max(9_999_999_999.99, 'is too large').refine((n) => /^\d+(\.\d{1,2})?$/.test(String(n)), 'can have at most 2 decimal places');
+const money = z.preprocess((value) => {
+  if (typeof value === 'object' && value !== null && 'value' in value) return (value as { value: unknown }).value;
+  return value;
+}, z.coerce.number().nonnegative('must be 0 or more').max(9_999_999_999.99, 'is too large').refine((n) => /^\d+(\.\d{1,2})?$/.test(String(n)), 'can have at most 2 decimal places'));
 export const taxIdSchema = z.object({ id: z.coerce.number().int().positive() });
 export const taxRecordSchema = z.object({
   tax_name: z.string().trim().min(1).max(120),

@@ -184,6 +184,7 @@ export interface TaxRecordTable {
 export interface MaintenanceRecordTable {
   id: Generated<number>;
   maint_date: DateOnly;
+  maintenance_frequency: 'daily' | 'weekly' | 'monthly' | null;
   equipment: string;
   description: string | null;
   cost: Money;

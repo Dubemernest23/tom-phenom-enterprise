@@ -4,16 +4,15 @@ import type { Database } from '../types.js';
 
 export async function seedAdmin(
   db: Kysely<Database>,
+  username = 'admin',
+  plainPassword = 'change-this-password',
 ): Promise<void> {
-  const passwordHash = await bcrypt.hash(
-    'change-this-password',
-    12,
-  );
+  const passwordHash = await bcrypt.hash(plainPassword, 12);
 
   await db
     .insertInto('admin')
     .values({
-      username: 'admin',
+      username,
       password: passwordHash,
       role: 'ADMIN',
     })

@@ -150,6 +150,7 @@ async function renderDetail(container, id) {
       ${formField({ name: 'salary_due', label: worker.salary_frequency === 'monthly' ? 'Monthly salary due' : 'Amount earned this period', type: 'number', inputmode: 'decimal', min: 0, step: '0.01', value: worker.salary_frequency === 'monthly' ? worker.base_salary : '' })}
       ${formField({ name: 'advance', label: 'Advance taken', type: 'number', inputmode: 'decimal', min: 0, step: '0.01', value: '0' })}
       ${formField({ name: 'amount_paid', label: 'Amount paid', type: 'number', inputmode: 'decimal', min: 0, step: '0.01', value: '0' })}
+      <div id="record-feedback" class="empty:hidden" role="alert" aria-live="assertive"></div>
       <button type="submit" class="min-h-11 w-full rounded-lg bg-primary px-4 py-3 text-base font-medium text-surface hover:bg-primary-dark">Save salary record</button>
     </form>
     <div id="record-summary" class="mt-4"></div>
@@ -159,11 +160,13 @@ async function renderDetail(container, id) {
 
   var form = container.querySelector('#record-form');
   var summaryEl = container.querySelector('#record-summary');
+  var feedbackEl = container.querySelector('#record-feedback');
   var listEl = container.querySelector('#record-list');
   const recordModal = attachFormModal(container, form, container.querySelector('#new-salary-record'), 'Add salary record');
   let editingRecord = null;
   const newRecordButton = container.querySelector('#new-salary-record');
   newRecordButton.addEventListener('click', () => {
+    feedbackEl.innerHTML = '';
     editingRecord = null;
     form.reset();
     form.elements.salary_due.value = worker.salary_frequency === 'monthly' ? worker.base_salary : '';
@@ -185,6 +188,7 @@ async function renderDetail(container, id) {
     if (!button) return;
     editingRecord = records.find((record) => Number(record.id) === Number(button.dataset.editSalaryRecord));
     if (!editingRecord) return;
+    feedbackEl.innerHTML = '';
     form.elements.pay_period.value = editingRecord.pay_period;
     form.elements.due_date.value = editingRecord.due_date || todayISO();
     form.elements.salary_due.value = editingRecord.salary_due;
@@ -197,12 +201,19 @@ async function renderDetail(container, id) {
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     var fd = new FormData(form);
+    feedbackEl.innerHTML = '';
+    const readNumber = (name) => {
+      const raw = fd.get(name);
+      if (raw === null || raw === '') return 0;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : NaN;
+    };
     var body = {
       pay_period: String(fd.get('pay_period') || '').trim(),
       due_date: fd.get('due_date'),
-      salary_due: Number(fd.get('salary_due')),
-      advance: Number(fd.get('advance')),
-      amount_paid: Number(fd.get('amount_paid')),
+      salary_due: readNumber('salary_due'),
+      advance: readNumber('advance'),
+      amount_paid: readNumber('amount_paid'),
     };
 
     var result;
@@ -211,7 +222,8 @@ async function renderDetail(container, id) {
         ? await updateSalaryRecord(id, editingRecord.id, body)
         : await addSalaryRecord(id, body);
     } catch (err) {
-      summaryEl.innerHTML = '<p class="rounded-lg border border-debt bg-surface p-4 text-debt">' + err.message + '</p>';
+      feedbackEl.innerHTML = '<p class="rounded-lg border border-debt bg-surface p-4 text-debt">Could not save this salary record: ' + escapeHtml(err.message) + '</p>';
+      feedbackEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
 

@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const createMaintenanceSchema = z.object({
   maint_date: z.iso.date('must be a date in YYYY-MM-DD format'),
+  maintenance_frequency: z.enum(['daily', 'weekly', 'monthly']),
   equipment: z.string().trim().min(1, 'is required').max(120, 'must be 120 characters or fewer'),
   description: z.string().trim().max(255, 'must be 255 characters or fewer').nullish(),
   cost: z.number().nonnegative('must be 0 or more').max(9_999_999_999.99, 'is too large')

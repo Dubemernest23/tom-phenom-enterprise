@@ -16,6 +16,7 @@ export async function render(container) {
       ${formField({ name: 'amount_due', label: 'Amount due', type: 'number', min: 0, step: '0.01', value: '0' })}
       ${formField({ name: 'amount_paid', label: 'Amount paid', type: 'number', min: 0, step: '0.01', value: '0' })}
       ${formField({ name: 'payment_date', label: 'Date paid', type: 'date', value: today, required: false })}
+      <div id="tax-feedback" role="alert" aria-live="assertive"></div>
       <button type="submit" class="min-h-11 rounded-lg bg-primary px-4 py-2 text-surface">Save tax record</button>
       <button type="button" data-cancel class="hidden min-h-11 rounded-lg border border-line px-4 py-2 text-ink">Cancel edit</button>
     </form>
@@ -42,6 +43,7 @@ export async function render(container) {
     form.elements.payment_date.value = record?.payment_date || todayISO();
     form.querySelector('button[type="submit"]').textContent = record ? 'Update tax record' : 'Save tax record';
     cancel.classList.toggle('hidden', !record);
+    form.querySelector('#tax-feedback').innerHTML = '';
   }
   container.querySelector('#new-tax').addEventListener('click', () => reset());
   function renderRows() {
@@ -64,14 +66,23 @@ export async function render(container) {
   cancel.addEventListener('click', () => { reset(); modal.close(); });
   form.addEventListener('submit', async (event) => {
     event.preventDefault(); const fd = new FormData(form);
-    const amountPaid = Number(fd.get('amount_paid'));
+    const readNumber = (name) => {
+      const raw = form.elements.namedItem(name)?.value;
+      if (raw === '' || raw == null) return 0;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : NaN;
+    };
+    const amountPaid = readNumber('amount_paid');
     const body = {
       tax_name: String(fd.get('tax_name') || '').trim(), description: String(fd.get('description') || '').trim(),
       frequency: fd.get('frequency'), period_label: String(fd.get('period_label') || '').trim(), due_date: fd.get('due_date'),
-      amount_due: Number(fd.get('amount_due')), amount_paid, payment_date: amountPaid > 0 ? fd.get('payment_date') : null,
+      amount_due: readNumber('amount_due'), amount_paid, payment_date: amountPaid > 0 ? fd.get('payment_date') : null,
     };
     try { editing ? await updateTax(editing.id, body) : await createTax(body); reset(); modal.close(); await reload(); }
-    catch (err) { container.querySelector('#tax-message').innerHTML = `<p class="text-debt">${escapeHtml(err.message)}</p>`; }
+    catch (err) {
+      form.querySelector('#tax-feedback').innerHTML = `<p class="rounded-lg border border-debt bg-surface p-4 text-debt">Could not save this tax record: ${escapeHtml(err.message)}</p>`;
+      form.querySelector('#tax-feedback').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
   });
   await reload();
 }

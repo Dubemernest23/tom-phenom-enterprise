@@ -128,7 +128,9 @@ tax balances.
 
 **Loads:** list of past maintenance records, most recent first, with a
 running total for the current calendar month shown above the list.
-**Form fields:** date, equipment, description, cost, vendor (optional).
+**Form fields:** date, maintenance interval (daily, weekly, monthly), equipment,
+description, cost, vendor (optional). Existing records without a saved interval
+display "Interval not recorded".
 **On submit:** prepend to the list, update the month total.
 
 ## 11. Payables (`#/payables`, `#/payables/:id`)
