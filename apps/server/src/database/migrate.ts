@@ -1,6 +1,5 @@
-import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { FileMigrationProvider, Migrator } from 'kysely/migration';
+import {Migrator } from 'kysely/migration';
 
 import { db } from '../config/db.js';
 import { WindowsSafeMigrationProvider } from './windows-safe-migration-provider.js';

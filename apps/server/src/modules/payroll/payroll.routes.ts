@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import { notImplemented } from '../../utils/asyncHandler';
+import { payrollController } from './payroll.controller.js';
 
 export const payrollRouter = Router();
 
-payrollRouter.get('/', notImplemented('Payroll', 'list workers'));
-payrollRouter.post('/', notImplemented('Payroll', 'create worker'));
-payrollRouter.get('/:id', notImplemented('Payroll', 'worker detail'));
-payrollRouter.post('/:id/records', notImplemented('Payroll', 'add salary record'));
+payrollRouter.get('/', payrollController.list);
+payrollRouter.post('/', payrollController.create);
+payrollRouter.get('/:id', payrollController.getById);
+payrollRouter.post('/:id/records', payrollController.addRecord);
+payrollRouter.patch('/:id/records/:recordId', payrollController.updateRecord);

@@ -2,13 +2,15 @@ import { getMaintenanceRecords, createMaintenanceRecord } from '../api.js';
 import { formField } from '../components/form-field.js';
 import { listRow } from '../components/list-row.js';
 import { formatNaira, formatDate, todayISO, escapeHtml } from '../utils.js';
+import { attachFormModal } from '../components/form-modal.js';
 
 export async function render(container) {
   container.innerHTML = `
-    <h1 class="font-heading text-xl font-semibold text-ink">Maintenance</h1>
+    <div class="flex items-center justify-between gap-3"><h1 class="font-heading text-xl font-semibold text-ink">Maintenance</h1><button type="button" id="new-maintenance" class="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-surface">+ New record</button></div>
 
     <form id="maintenance-form" class="mt-6 flex flex-col gap-4">
       ${formField({ name: 'maint_date', label: 'Date', type: 'date', value: todayISO() })}
+      <div class="flex flex-col gap-1.5"><label for="maintenance_frequency" class="text-sm font-medium text-ink">Maintenance interval</label><select id="maintenance_frequency" name="maintenance_frequency" required class="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-base text-ink"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select><p class="text-xs text-ink-muted">How often this maintenance task is scheduled.</p></div>
       ${formField({ name: 'equipment', label: 'Equipment' })}
       ${formField({ name: 'description', label: 'Description', required: false })}
       ${formField({ name: 'cost', label: 'Cost', type: 'number', inputmode: 'decimal', min: 0, step: '0.01' })}
@@ -27,6 +29,7 @@ export async function render(container) {
   var msgEl = container.querySelector('#maintenance-msg');
   var totalEl = container.querySelector('#month-total');
   var listEl = container.querySelector('#maintenance-list');
+  const maintenanceModal = attachFormModal(container, form, container.querySelector('#new-maintenance'), 'New maintenance record');
 
   var total = 0;
 
@@ -44,6 +47,7 @@ export async function render(container) {
     var fd = new FormData(form);
     var body = {
       maint_date: fd.get('maint_date'),
+      maintenance_frequency: fd.get('maintenance_frequency'),
       equipment: String(fd.get('equipment') || '').trim(),
       description: String(fd.get('description') || '').trim() || null,
       cost: Number(fd.get('cost')),
@@ -67,6 +71,7 @@ export async function render(container) {
 
     total = total + Number(result.cost || body.cost || 0);
     renderTotal();
+    maintenanceModal.close();
 
     form.reset();
     form.elements.maint_date.value = todayISO();
@@ -112,6 +117,7 @@ function maintRow(r) {
   return listRow([
     { value: formatDate(r.maint_date || r.date), className: 'text-ink' },
     { value: escapeHtml(r.equipment), className: 'text-ink' },
+    { value: r.maintenance_frequency ? `${escapeHtml(r.maintenance_frequency)} maintenance` : 'Interval not recorded', className: 'text-ink-muted' },
     { value: escapeHtml(detail), className: 'text-ink-muted' },
     { value: formatNaira(r.cost), className: 'text-ink' },
   ]);

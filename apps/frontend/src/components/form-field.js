@@ -1,12 +1,13 @@
-export function formField({ name, label, type, inputmode, value, required, min, step, placeholder }) {
+export function formField({ name, id, label, type, inputmode, value, required, min, step, placeholder }) {
   const inputType = type || 'text';
+  const fieldId = id || name;
   const isRequired = required !== false;
   return `
     <div class="flex flex-col gap-1.5">
-      <label for="${name}" class="text-sm font-medium text-ink">${label}</label>
+      <label for="${fieldId}" class="text-sm font-medium text-ink">${label}</label>
       <input
         type="${inputType}"
-        id="${name}"
+        id="${fieldId}"
         name="${name}"
         ${inputmode ? `inputmode="${inputmode}"` : ''}
         ${value !== undefined ? `value="${value}"` : ''}

@@ -1,7 +1,6 @@
-import type { NextFunction, RequestHandler } from 'express';
+import type { RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
-import { ne } from 'zod/locales';
 
 type AuthTokenPayload = {
   sub: string;
@@ -48,3 +47,27 @@ export const requireRoleCheck =  (...allowedRoles:string[]):RequestHandler =>{
     next();
   }
 }
+
+const SUPERVISOR_RESTRICTED_PATHS = ['/api/staff', '/api/payroll', '/api/payables'];
+
+/** Enforces panel roles for every protected API, including routes added later. */
+export const enforcePanelAccess: RequestHandler = (req, res, next) => {
+  const role = req.user?.role?.toUpperCase();
+  if (!role || !['ADMIN', 'MANAGER', 'SUPERVISOR'].includes(role)) {
+    res.status(403).json({ error: 'Your account does not have access to this resource.' });
+    return;
+  }
+
+  const path = `/api${req.path}`;
+  if (role === 'SUPERVISOR' && SUPERVISOR_RESTRICTED_PATHS.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
+    res.status(403).json({ error: 'This section is restricted for supervisor accounts.' });
+    return;
+  }
+
+  if (role !== 'ADMIN' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+    res.status(403).json({ error: 'This account has read-only access.' });
+    return;
+  }
+
+  next();
+};

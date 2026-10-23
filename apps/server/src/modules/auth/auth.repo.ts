@@ -29,6 +29,11 @@ export class AdminRepository {
       .executeTakeFirst();
   }
 
+  async createUser(input: { username: string; password: string; role: 'MANAGER' | 'SUPERVISOR' }) {
+    const result = await this.db.insertInto('admin').values(input).executeTakeFirstOrThrow();
+    return { id: Number(result.insertId), username: input.username, role: input.role };
+  }
+
   async updatePassword(id: number, passwordHash: string): Promise<boolean> {
     const result = await this.db
       .updateTable('admin')

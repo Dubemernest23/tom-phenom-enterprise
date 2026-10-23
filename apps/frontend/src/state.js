@@ -38,6 +38,10 @@ export function isAuthenticated() {
   return state.session != null;
 }
 
+export function getUserRole() {
+  return String(state.session?.user?.role || '').toUpperCase();
+}
+
 export function clearSession() {
   setSession(null);
   state.dashboardSummary = null;

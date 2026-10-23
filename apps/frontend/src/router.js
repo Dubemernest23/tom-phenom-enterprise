@@ -1,5 +1,6 @@
 const routes = {};
 let guard = null;
+import { getUserRole } from './state.js';
 
 export function registerRoute(path, module) {
   routes[path] = module;
@@ -26,7 +27,20 @@ function renderRoute(path, container) {
   for (const [pattern, module] of Object.entries(routes)) {
     const params = matchRoute(pattern, path);
     if (params !== null) {
-      module.render(container, params);
+      const rendered = module.render(container, params);
+      if (getUserRole() === 'MANAGER') {
+        Promise.resolve(rendered).then(() => {
+          if (!container.isConnected || getUserRole() !== 'MANAGER') return;
+          container.querySelectorAll('form, button').forEach((element) => { element.hidden = true; element.style.display = 'none'; });
+          container.querySelectorAll('a').forEach((link) => {
+            if (/^\s*\+/.test(link.textContent || '')) { link.hidden = true; link.style.display = 'none'; }
+          });
+          const notice = document.createElement('p');
+          notice.className = 'mb-4 rounded-lg border border-line bg-surface-alt p-3 text-sm text-ink-muted';
+          notice.textContent = 'Manager account · read-only access';
+          container.prepend(notice);
+        });
+      }
       return;
     }
   }
