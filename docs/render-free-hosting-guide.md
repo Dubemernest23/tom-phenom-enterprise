@@ -37,7 +37,7 @@ This guide deploys the existing frontend and API as two Render services and keep
    | `DATABASE_URL` | Your MySQL connection URL, for example `mysql://USER:PASSWORD@HOST:PORT/DATABASE` (URL-encode special characters in credentials) |
    | `MYSQL_CA_CERT_PATH` | Optional path to the MySQL provider's private CA certificate. For a Render Secret File named `mysql-ca.pem`, set this to `/etc/secrets/mysql-ca.pem`. Leave unset when the provider certificate chains to a system trusted CA. |
    | `JWT_SECRET` | A long, random secret; do not reuse the development value |
-   | `CORS_ORIGIN` | The frontend's exact HTTPS origin; fill this in after step 2, e.g. `https://your-frontend.onrender.com` |
+   | `CORS_ORIGIN` | Comma-separated frontend origins, each an HTTPS origin with no path. The current frontend `https://dashboard-tomphenomenterprise.onrender.com` is allowed by default; add any custom domain here, e.g. `https://dashboard.example.com,https://www.dashboard.example.com`. |
    | `OWNER_USERNAME` | The initial admin username you will seed once |
    | `OWNER_PASSWORD` | A strong, unique initial admin password you will seed once |
 
