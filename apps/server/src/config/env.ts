@@ -14,6 +14,8 @@ export const env = {
   corsOrigins: (process.env.CORS_ORIGIN || 'http://localhost:5173,http://127.0.0.1:5173')
     .split(',').map((origin) => origin.trim()).filter(Boolean),
   databaseUrl: process.env.DATABASE_URL,
+  mysqlCaCert: process.env.MYSQL_CA_CERT,
+  mysqlCaCertPath: process.env.MYSQL_CA_CERT_PATH,
   isDevelopment: process.env.NODE_ENV === 'development',
   isProduction: process.env.NODE_ENV === 'production',
   jwtSecret: process.env.JWT_SECRET || 'dev-only-change-me',
